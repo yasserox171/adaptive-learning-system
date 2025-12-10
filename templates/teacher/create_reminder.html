@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء تذكير{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">الرئيسية</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('teacher_lessons') }}">الدروس</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_lesson', lesson_id=section.lesson.id) }}">{{ section.lesson.title }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_section', section_id=section.id) }}">{{ section.title }}</a></li>
+                <li class="breadcrumb-item active">تذكير جديد</li>
+            </ol>
+        </nav>
+        
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="bi bi-lightbulb"></i> إنشاء تذكير</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_reminder', section_id=section.id) }}">
+                    {% set reminder_type = request.args.get('type', '1') %}
+                    <div class="mb-3">
+                        <label class="form-label">نوع التذكير</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="reminder_type" 
+                                   id="type1" value="1" {% if reminder_type == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="type1">
+                                <strong>تذكير المستوى المتقدم (1)</strong> - للطلاب الذين حصلوا على N ≥ 10
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="reminder_type" 
+                                   id="type2" value="2" {% if reminder_type == '2' %}checked{% endif %}>
+                            <label class="form-check-label" for="type2">
+                                <strong>تذكير المستوى الأساسي (2)</strong> - للطلاب الذين حصلوا على N < 10
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">عنوان التذكير</label>
+                        <input type="text" class="form-control" id="title" name="title">
+                        <div class="form-text">عنوان مختصر للتذكير (اختياري)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">محتوى التذكير</label>
+                        <textarea class="form-control" id="content" name="content" rows="8" required></textarea>
+                        <div class="form-text">مراجعة سريعة للمفاهيم الأساسية التي يحتاجها الطالب قبل متابعة الدرس</div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">تمرين تدعيمي للتذكير (اختياري)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="exercise_content" class="form-label">نص التمرين</label>
+                                <textarea class="form-control" id="exercise_content" name="exercise_content" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="exercise_answer" class="form-label">الإجابة الصحيحة</label>
+                                <input type="text" class="form-control" id="exercise_answer" name="exercise_answer">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="exercise_explanation" class="form-label">شرح الحل</label>
+                                <textarea class="form-control" id="exercise_explanation" name="exercise_explanation" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('edit_section', section_id=section.id) }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> إلغاء
+                        </a>
+                        <button type="submit" class="btn btn-info">
+                            <i class="bi bi-check-circle"></i> حفظ التذكير
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

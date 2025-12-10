@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء درس جديد{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-plus-circle"></i> إنشاء درس جديد</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_lesson') }}">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">عنوان الدرس</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                        <div class="form-text">أدخل عنواناً واضحاً وجذاباً للدرس</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">وصف الدرس</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        <div class="form-text">وصف مختصر لمحتوى الدرس وأهدافه</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="level_id" class="form-label">المستوى التعليمي</label>
+                            <select class="form-select" id="level_id" name="level_id">
+                                <option value="1">المستوى الأول (مبتدئ)</option>
+                                <option value="2">المستوى الثاني (متوسط)</option>
+                                <option value="3">المستوى الثالث (متقدم)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="order" class="form-label">ترتيب العرض</label>
+                            <input type="number" class="form-control" id="order" name="order" min="1" value="1">
+                            <div class="form-text">رقم يحدد ترتيب الدرس بين الدروس الأخرى</div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle"></i> ملاحظة:</h6>
+                        <p class="mb-0">بعد إنشاء الدرس، يمكنك إضافة الفقرات والاختبارات التشخيصية والتمارين.</p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('teacher_lessons') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> إلغاء
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> إنشاء الدرس
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

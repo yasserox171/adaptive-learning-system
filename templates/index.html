@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}الرئيسية - نظام التعلم التكيفي{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">مرحبا بكم في نظام التعلم التكيفي</h1>
+        <p class="lead mb-4">
+            نظام تعليمي ذكي يتكيف مع مستوى كل تلميذ، يقدم محتوى تعليمي مخصص بناءً على أداء التلميذ في الاختبارات التشخيصية.
+        </p>
+        
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">📊 التشخيص</h5>
+                        <p class="card-text">اختبارات تشخيصية لتحديد المستوى بدقة</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">📚 تذكيرات مخصصة</h5>
+                        <p class="card-text">مراجعات تعتمد على مستوى التلميذ</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🎯 تمارين تكيفية</h5>
+                        <p class="card-text">تمارين تتغير حسب أداء التلميذ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-5">
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg mx-2">سجل الآن</a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg mx-2">تسجيل الدخول</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

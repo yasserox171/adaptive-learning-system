@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء تمرين جديد{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">الرئيسية</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('teacher_lessons') }}">الدروس</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_lesson', lesson_id=section.lesson.id) }}">{{ section.lesson.title }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_section', section_id=section.id) }}">{{ section.title }}</a></li>
+                <li class="breadcrumb-item active">تمرين جديد</li>
+            </ol>
+        </nav>
+        
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-pencil-square"></i> إنشاء تمرين جديد</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_exercise', section_id=section.id) }}">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">عنوان التمرين (اختياري)</label>
+                        <input type="text" class="form-control" id="title" name="title">
+                        <div class="form-text">عنوان يصف التمرين بشكل مختصر</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">نص التمرين</label>
+                        <textarea class="form-control" id="content" name="content" rows="4" required></textarea>
+                        <div class="form-text">صيغة السؤال أو المشكلة التي سيحلها الطالب</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="level" class="form-label">نوع التمرين</label>
+                            <select class="form-select" id="level" name="level" required>
+                                <option value="0">تمرين أساسي (0) - للمرحلة الرابعة</option>
+                                <option value="1">تمرين متقدم (1) - للمستوى الأول N ≥ 10</option>
+                                <option value="2">تمرين علاجي (2) - للمستوى الثاني N < 10</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="points" class="form-label">النقاط</label>
+                            <input type="number" class="form-control" id="points" name="points" value="10" min="1">
+                            <div class="form-text">عدد النقاط التي يحصل عليها الطالب للإجابة الصحيحة</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="correct_answer" class="form-label">الإجابة الصحيحة</label>
+                        <input type="text" class="form-control" id="correct_answer" name="correct_answer" required>
+                        <div class="form-text">الإجابة التي سيقارنها النظام مع إجابة الطالب</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="explanation" class="form-label">شرح الحل</label>
+                        <textarea class="form-control" id="explanation" name="explanation" rows="3"></textarea>
+                        <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته على التمرين</div>
+                    </div>
+                    
+                    <div class="alert alert-light">
+                        <h6><i class="bi bi-info-circle"></i> ملاحظات:</h6>
+                        <ul class="mb-0">
+                            <li><strong>التمرين الأساسي (0)</strong>: يُعرض بعد شرح الدرس مباشرة</li>
+                            <li><strong>التمرين المتقدم (1)</strong>: للطلاب الذين حصلوا على 10 نقاط فأكثر في التشخيص</li>
+                            <li><strong>التمرين العلاجي (2)</strong>: للطلاب الذين حصلوا على أقل من 10 نقاط في التشخيص</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('edit_section', section_id=section.id) }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> إلغاء
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> حفظ التمرين
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

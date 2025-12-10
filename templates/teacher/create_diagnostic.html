@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء اختبار تشخيصي{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">الرئيسية</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('teacher_lessons') }}">الدروس</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_lesson', lesson_id=section.lesson.id) }}">{{ section.lesson.title }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('edit_section', section_id=section.id) }}">{{ section.title }}</a></li>
+                <li class="breadcrumb-item active">اختبار تشخيصي</li>
+            </ol>
+        </nav>
+        
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> اختبار تشخيصي</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_diagnostic', section_id=section.id) }}">
+                    <div class="mb-3">
+                        <label for="question" class="form-label">سؤال الاختبار</label>
+                        <textarea class="form-control" id="question" name="question" rows="3" required></textarea>
+                        <div class="form-text">صيغة السؤال التي ستظهر للطالب</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="option1" class="form-label">الخيار الأول</label>
+                            <input type="text" class="form-control" id="option1" name="option1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="option2" class="form-label">الخيار الثاني</label>
+                            <input type="text" class="form-control" id="option2" name="option2" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="option3" class="form-label">الخيار الثالث</label>
+                            <input type="text" class="form-control" id="option3" name="option3" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="option4" class="form-label">الخيار الرابع</label>
+                            <input type="text" class="form-control" id="option4" name="option4" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="correct_answer" class="form-label">الإجابة الصحيحة</label>
+                        <select class="form-select" id="correct_answer" name="correct_answer" required>
+                            <option value="">اختر الإجابة الصحيحة</option>
+                            <option value="option1">الخيار الأول</option>
+                            <option value="option2">الخيار الثاني</option>
+                            <option value="option3">الخيار الثالث</option>
+                            <option value="option4">الخيار الرابع</option>
+                        </select>
+                        <div class="form-text">اختر الخيار الصحيح من القائمة</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="explanation" class="form-label">شرح الإجابة</label>
+                        <textarea class="form-control" id="explanation" name="explanation" rows="3"></textarea>
+                        <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته على السؤال</div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-lightbulb"></i> تذكر:</h6>
+                        <p class="mb-0">
+                            <strong>N ≥ 10</strong> → المستوى 1 (متقدم)<br>
+                            <strong>N < 10</strong> → المستوى 2 (أساسي)
+                        </p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('edit_section', section_id=section.id) }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-right"></i> إلغاء
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-check-circle"></i> حفظ الاختبار
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

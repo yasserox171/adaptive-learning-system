@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}الإحصائيات{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">الرئيسية</a></li>
+                    <li class="breadcrumb-item active">الإحصائيات</li>
+                </ol>
+            </nav>
+            
+            <h2>الإحصائيات</h2>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">إجمالي الدروس</h6>
+                            <h2 class="mb-0">{{ total_lessons }}</h2>
+                        </div>
+                        <i class="bi bi-journal-text display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">الدروس المنشورة</h6>
+                            <h2 class="mb-0">{{ published_lessons }}</h2>
+                        </div>
+                        <i class="bi bi-check-circle display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">إجمالي الطلاب</h6>
+                            <h2 class="mb-0">{{ total_students }}</h2>
+                        </div>
+                        <i class="bi bi-people display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-0">الدروس قيد التطوير</h6>
+                            <h2 class="mb-0">{{ total_lessons - published_lessons }}</h2>
+                        </div>
+                        <i class="bi bi-pencil display-6"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">آخر الدروس المضافة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for lesson in current_user.created_lessons[-5:]|reverse %}
+                        <a href="{{ url_for('edit_lesson', lesson_id=lesson.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ lesson.title }}</h6>
+                                <small>{{ lesson.created_at.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                            <p class="mb-1 small text-muted">{{ lesson.description[:50] }}...</p>
+                            <small>
+                                {% if lesson.is_published %}
+                                <span class="badge bg-success">منشور</span>
+                                {% else %}
+                                <span class="badge bg-warning">مسودة</span>
+                                {% endif %}
+                                <span class="ms-2">{{ lesson.sections|length }} فقرة</span>
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">نشاط النظام</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-graph-up"></i> معلومات النظام:</h6>
+                        <ul class="mb-0">
+                            <li>نظام التعلم التكيفي يعمل بكفاءة</li>
+                            <li>جميع الوظائف متاحة للمعلمين</li>
+                            <li>يمكنك مراقبة تقدم الطلاب من خلال النتائج</li>
+                            <li>قم بتحديث المحتوى بانتظام لضمان الفعالية</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-light">
+                        <h6><i class="bi bi-clock-history"></i> نصائح للمتابعة:</h6>
+                        <ol class="mb-0">
+                            <li>راجع أداء الطلاب في الاختبارات التشخيصية</li>
+                            <li>حلل النتائج لتحديد نقاط الضعف</li>
+                            <li>قم بتحديث التمارين بناءً على نتائج الطلاب</li>
+                            <li>أضف محتوى جديداً بانتظام</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">دليل المعلم</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-1-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">إنشاء الدرس</h5>
+                                    <p class="small text-muted">ابدأ بإنشاء درس جديد وأضف وصفاً واضحاً</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-2-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">إضافة الفقرات</h5>
+                                    <p class="small text-muted">أضف فقرات الدرس بالترتيب المنطقي</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-3-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">التشخيص والتذكيرات</h5>
+                                    <p class="small text-muted">أضف اختبار تشخيصي وتذكيرين لكل فقرة</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-4-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">التمارين</h5>
+                                    <p class="small text-muted">أنشئ ثلاثة أنواع من التمارين لكل فقرة</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-5-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">النشر</h5>
+                                    <p class="small text-muted">نشر الدرس بعد التأكد من جاهزيته</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-6-circle display-4 text-primary"></i>
+                                    <h5 class="mt-3">المتابعة</h5>
+                                    <p class="small text-muted">تابع أداء الطلاب وحسن المحتوى بناءً على النتائج</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

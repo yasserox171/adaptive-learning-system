@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}التسجيل{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">إنشاء حساب جديد</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">الاسم الكامل</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">البريد الإلكتروني</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">كلمة المرور</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="user_type" class="form-label">نوع الحساب</label>
+                        <select class="form-select" id="user_type" name="user_type" required>
+                            <option value="student">طالب</option>
+                            <option value="teacher">معلم</option>
+                        </select>
+                        <div class="form-text">اختر "معلم" إذا كنت تريد إنشاء وإدارة الدروس</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">إنشاء الحساب</button>
+                </form>
+                <div class="mt-3 text-center">
+                    <p>لديك حساب بالفعل؟ <a href="{{ url_for('login') }}">سجل الدخول</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

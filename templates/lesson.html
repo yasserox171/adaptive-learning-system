@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">لوحة التحكم</a></li>
+                <li class="breadcrumb-item active">{{ lesson.title }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">{{ lesson.title }}</h3>
+            </div>
+            <div class="card-body">
+                <p class="lead">{{ lesson.description }}</p>
+            </div>
+        </div>
+        
+        <h4 class="mb-3">فقرات الدرس</h4>
+        <div class="list-group">
+            {% for section in lesson.sections %}
+            <a href="{{ url_for('view_section', section_id=section.id) }}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ section.title }}</h5>
+                    <small>الفقرة {{ loop.index }}</small>
+                </div>
+                <p class="mb-1">{{ section.content[:100] }}...</p>
+            </a>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-4">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">العودة للوحة التحكم</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

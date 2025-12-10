@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">لوحة التحكم</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('view_lesson', lesson_id=section.lesson.id) }}">{{ section.lesson.title }}</a></li>
+                <li class="breadcrumb-item active">{{ section.title }}</li>
+            </ol>
+        </nav>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">{{ section.title }}</h3>
+            </div>
+            <div class="card-body">
+                <!-- Stage 1: Diagnostic -->
+                <div id="stage-diagnostic" class="stage">
+                    <h4 class="mb-3">📌 المرحلة 1: التشخيص</h4>
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="card-text">اختبار تشخيصي لتحديد مستواك في هذه الفقرة</p>
+                            {% for diagnostic in section.diagnostics %}
+                            <div id="diagnostic-question">
+                                <h5>{{ diagnostic.question }}</h5>
+                                <div class="options mt-3">
+                                    {% set options = diagnostic.options|from_json %}
+                                    {% for option in options %}
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="diagnostic" id="option{{ loop.index }}" value="{{ option }}">
+                                        <label class="form-check-label" for="option{{ loop.index }}">
+                                            {{ option }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <button onclick="submitDiagnostic({{ diagnostic.id }})" class="btn btn-primary mt-3">تقديم الإجابة</button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stage 2: Reminders (initially hidden) -->
+                <div id="stage-reminders" class="stage" style="display: none;">
+                    <h4 class="mb-3">📌 المرحلة 2: التذكيرات</h4>
+                    <div id="reminders-content"></div>
+                    <div id="reminder-exercises" style="display: none;">
+                        <h5 class="mt-4">تمارين التدعيم</h5>
+                        <div id="reminder-exercises-content"></div>
+                    </div>
+                    <button onclick="showLessonContent()" id="continue-lesson-btn" class="btn btn-success mt-3" style="display: none;">
+                        المتابعة للدرس
+                    </button>
+                </div>
+                
+                <!-- Stage 3: Lesson Content (initially hidden) -->
+                <div id="stage-lesson" class="stage" style="display: none;">
+                    <h4 class="mb-3">📌 المرحلة 3: الدرس الأساسي</h4>
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            {{ section.content|safe }}
+                        </div>
+                    </div>
+                    <button onclick="showMainExercise()" class="btn btn-primary">المتابعة للتمرين</button>
+                </div>
+                
+                <!-- Stage 4: Main Exercise (initially hidden) -->
+                <div id="stage-main-exercise" class="stage" style="display: none;">
+                    <h4 class="mb-3">📌 المرحلة 4: التمرين الأساسي</h4>
+                    <div id="main-exercise-content"></div>
+                    <div id="exercise-result" class="mt-3" style="display: none;"></div>
+                </div>
+                
+                <!-- Stage 5: Level Exercises (initially hidden) -->
+                <div id="stage-level-exercises" class="stage" style="display: none;">
+                    <h4 class="mb-3">📌 المرحلة 5: تمارين المستوى</h4>
+                    <div id="level-exercises-content"></div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="mt-4">
+                    <button onclick="goToNextSection()" id="next-section-btn" class="btn btn-success" style="display: none;">
+                        الانتقال للفقرة التالية
+                    </button>
+                    <a href="{{ url_for('view_lesson', lesson_id=section.lesson.id) }}" class="btn btn-secondary">
+                        العودة للدرس
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let studentLevel = null;
+    let currentReminderIndex = 0;
+    let currentExerciseIndex = 0;
+    
+    // بيانات التمارين من السياق
+    const sectionData = {
+        mainExercises: {{ main_exercises|tojson|safe }},
+        advancedExercises: {{ advanced_exercises|tojson|safe }},
+        basicExercises: {{ basic_exercises|tojson|safe }}
+    };
+    
+    // Initialize based on existing diagnostic result
+    {% if diagnostic_result %}
+        studentLevel = {{ 1 if diagnostic_result.score >= 10 else 2 }};
+        showStage('stage-reminders');
+        loadReminders({{ section.id }}, studentLevel);
+    {% endif %}
+    
+    function submitDiagnostic(diagnosticId) {
+        const selectedOption = document.querySelector('input[name="diagnostic"]:checked');
+        if (!selectedOption) {
+            alert('يرجى اختيار إجابة');
+            return;
+        }
+        
+        fetch(`/api/diagnostic/${diagnosticId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ answer: selectedOption.value })
+        })
+        .then(response => response.json())
+        .then(data => {
+            studentLevel = data.level;
+            document.getElementById('stage-diagnostic').style.display = 'none';
+            showStage('stage-reminders');
+            loadReminders({{ section.id }}, studentLevel);
+        });
+    }
+    
+    function loadReminders(sectionId, level) {
+        fetch(`/api/section/${sectionId}/reminders/${level}`)
+            .then(response => response.json())
+            .then(reminders => {
+                const container = document.getElementById('reminders-content');
+                if (reminders.length > 0) {
+                    container.innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>${reminders[0].title}</h5>
+                                <div>${reminders[0].content}</div>
+                                ${reminders[0].exercises.length > 0 ? 
+                                    '<button onclick="showReminderExercises()" class="btn btn-primary mt-3">عرض تمارين التذكير</button>' : 
+                                    '<button onclick="showLessonContent()" class="btn btn-success mt-3">المتابعة للدرس</button>'
+                                }
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p>لا توجد تذكيرات لهذا المستوى</p>';
+                    document.getElementById('continue-lesson-btn').style.display = 'block';
+                }
+            });
+    }
+    
+    function loadMainExercise() {
+        // Load main exercise for this section
+        if (sectionData.mainExercises.length > 0) {
+            const exercise = sectionData.mainExercises[0];
+            document.getElementById('main-exercise-content').innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5>${exercise.title || 'التمرين الأساسي'}</h5>
+                        <p>${exercise.content}</p>
+                        <div class="form-group">
+                            <label for="main-exercise-answer">الإجابة:</label>
+                            <input type="text" id="main-exercise-answer" class="form-control">
+                        </div>
+                        <button onclick="submitMainExercise(${exercise.id})" class="btn btn-primary mt-3">تقديم الإجابة</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('main-exercise-content').innerHTML = `
+                <div class="alert alert-warning">
+                    لا يوجد تمرين أساسي لهذه الفقرة
+                </div>
+            `;
+        }
+    }
+    
+    function loadLevelExercises() {
+        const container = document.getElementById('level-exercises-content');
+        
+        let exercises = [];
+        if (studentLevel === 1) {
+            exercises = sectionData.advancedExercises;
+        } else {
+            exercises = sectionData.basicExercises;
+        }
+        
+        if (exercises.length > 0) {
+            let exercisesHTML = '';
+            exercises.forEach((ex, index) => {
+                exercisesHTML += `
+                    <div class="exercise-item mb-3">
+                        <p><strong>${ex.title || 'تمرين'}</strong></p>
+                        <p>${ex.content}</p>
+                        <div class="form-group">
+                            <input type="text" class="form-control exercise-answer" 
+                                   placeholder="أدخل إجابتك" data-exercise-id="${ex.id}">
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5>${studentLevel === 1 ? 'تمارين متقدمة' : 'تمارين علاجية'}</h5>
+                        ${exercisesHTML}
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<p>لا توجد تمارين إضافية لهذا المستوى</p>';
+        }
+        
+        document.getElementById('next-section-btn').style.display = 'block';
+    }
+    
+    // بقية الدوال كما هي
+    function showReminderExercises() {
+        // Load and display reminder exercises
+        document.getElementById('stage-reminders').style.display = 'block';
+        document.getElementById('continue-lesson-btn').style.display = 'block';
+    }
+    
+    function showLessonContent() {
+        document.getElementById('stage-reminders').style.display = 'none';
+        showStage('stage-lesson');
+    }
+    
+    function showMainExercise() {
+        document.getElementById('stage-lesson').style.display = 'none';
+        showStage('stage-main-exercise');
+        loadMainExercise();
+    }
+    
+    function submitMainExercise(exerciseId) {
+        const answer = document.getElementById('main-exercise-answer').value;
+        
+        fetch(`/api/exercise/${exerciseId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ answer: answer })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const resultDiv = document.getElementById('exercise-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div class="alert ${data.correct ? 'alert-success' : 'alert-danger'}">
+                    ${data.correct ? 'إجابة صحيحة! 🎉' : 'إجابة خاطئة'}
+                    ${data.explanation ? `<p class="mt-2">${data.explanation}</p>` : ''}
+                </div>
+            `;
+            
+            // Show level exercises based on performance
+            setTimeout(() => {
+                document.getElementById('stage-main-exercise').style.display = 'none';
+                showStage('stage-level-exercises');
+                loadLevelExercises();
+            }, 2000);
+        });
+    }
+    
+    function goToNextSection() {
+        // Find next section
+        // يمكنك إضافة منطق للانتقال للفقرة التالية هنا
+        alert('تم إكمال الفقرة بنجاح!');
+        window.location.href = "/dashboard";
+    }
+    
+    function showStage(stageId) {
+        document.querySelectorAll('.stage').forEach(stage => {
+            stage.style.display = 'none';
+        });
+        document.getElementById(stageId).style.display = 'block';
+    }
+</script>
+{% endblock %}

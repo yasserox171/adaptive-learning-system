@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}تعديل فقرة: {{ section.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">الرئيسية</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher_lessons') }}">الدروس</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('edit_lesson', lesson_id=lesson.id) }}">{{ lesson.title }}</a></li>
+                    <li class="breadcrumb-item active">{{ section.title }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>فقرة: {{ section.title }}</h2>
+                <a href="{{ url_for('edit_lesson', lesson_id=lesson.id) }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-right"></i> العودة للدرس
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">محتوى الفقرة</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('edit_section', section_id=section.id) }}">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">عنوان الفقرة</label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ section.title }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content" class="form-label">محتوى الفقرة</label>
+                            <textarea class="form-control" id="content" name="content" 
+                                      rows="10" required>{{ section.content }}</textarea>
+                            <div class="form-text">يمكنك استخدام HTML لتنسيق المحتوى (العناوين، القوائم، الجداول، إلخ)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="order" class="form-label">ترتيب الفقرة في الدرس</label>
+                            <input type="number" class="form-control" id="order" name="order" 
+                                   value="{{ section.order }}" min="1">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> حفظ التغييرات
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- التشخيص -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">المرحلة 1: التشخيص</h6>
+                        <span class="badge bg-light text-dark">{{ section.diagnostics|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if section.diagnostics %}
+                    <div class="list-group mb-3">
+                        {% for diagnostic in section.diagnostics %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="mb-1 small">{{ diagnostic.question[:50] }}...</p>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger delete-diagnostic" 
+                                        data-diagnostic-id="{{ diagnostic.id }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-3">لم يتم إضافة اختبار تشخيصي بعد</p>
+                    {% endif %}
+                    <a href="{{ url_for('create_diagnostic', section_id=section.id) }}" class="btn btn-warning btn-sm w-100">
+                        <i class="bi bi-plus-circle"></i> {{ 'إضافة اختبار' if not section.diagnostics else 'تعديل الاختبار' }}
+                    </a>
+                </div>
+            </div>
+            
+            <!-- التذكيرات -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">المرحلة 2: التذكيرات</h6>
+                        <span class="badge bg-light text-dark">{{ section.reminders|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">تذكير المستوى المتقدم (1):</span>
+                            {% set reminder1 = section.reminders|selectattr('reminder_type', 'equalto', 1)|list %}
+                            {% if reminder1 %}
+                            <button class="btn btn-sm btn-outline-danger delete-reminder" 
+                                    data-reminder-id="{{ reminder1[0].id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% if reminder1 %}
+                        <p class="small mb-0">{{ reminder1[0].title }}</p>
+                        {% else %}
+                        <span class="badge bg-secondary">غير مضاف</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">تذكير المستوى الأساسي (2):</span>
+                            {% set reminder2 = section.reminders|selectattr('reminder_type', 'equalto', 2)|list %}
+                            {% if reminder2 %}
+                            <button class="btn btn-sm btn-outline-danger delete-reminder" 
+                                    data-reminder-id="{{ reminder2[0].id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% if reminder2 %}
+                        <p class="small mb-0">{{ reminder2[0].title }}</p>
+                        {% else %}
+                        <span class="badge bg-secondary">غير مضاف</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('create_reminder', section_id=section.id) }}?type=1" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-plus-circle"></i> {{ 'إضافة' if not reminder1 else 'تعديل' }} تذكير 1
+                        </a>
+                        <a href="{{ url_for('create_reminder', section_id=section.id) }}?type=2" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-plus-circle"></i> {{ 'إضافة' if not reminder2 else 'تعديل' }} تذكير 2
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- التمارين -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">المرحلتان 4 و 5: التمارين</h6>
+                        <span class="badge bg-light text-dark">{{ section.exercises|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% set main_exercises = section.exercises|selectattr('level', 'equalto', 0)|list %}
+                    {% set advanced_exercises = section.exercises|selectattr('level', 'equalto', 1)|list %}
+                    {% set basic_exercises = section.exercises|selectattr('level', 'equalto', 2)|list %}
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">التمرين الأساسي (0):</span>
+                            <span class="badge bg-secondary">{{ main_exercises|length }}</span>
+                        </div>
+                        {% if main_exercises %}
+                        {% for ex in main_exercises %}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <button class="btn btn-sm btn-outline-danger delete-exercise" 
+                                    data-exercise-id="{{ ex.id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <span class="badge bg-warning">غير مضاف</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">تمارين متقدمة (1):</span>
+                            <span class="badge bg-secondary">{{ advanced_exercises|length }}</span>
+                        </div>
+                        {% if advanced_exercises %}
+                        {% for ex in advanced_exercises %}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <button class="btn btn-sm btn-outline-danger delete-exercise" 
+                                    data-exercise-id="{{ ex.id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <span class="badge bg-warning">غير مضاف</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">تمارين علاجية (2):</span>
+                            <span class="badge bg-secondary">{{ basic_exercises|length }}</span>
+                        </div>
+                        {% if basic_exercises %}
+                        {% for ex in basic_exercises %}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <button class="btn btn-sm btn-outline-danger delete-exercise" 
+                                    data-exercise-id="{{ ex.id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <span class="badge bg-warning">غير مضاف</span>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{{ url_for('create_exercise', section_id=section.id) }}" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-plus-circle"></i> إضافة تمرين جديد
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // حذف تمرين
+    document.querySelectorAll('.delete-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.dataset.exerciseId;
+            if (confirm('هل أنت متأكد من حذف هذا التمرين؟')) {
+                fetch(`/teacher/exercise/${exerciseId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        });
+    });
+    
+    // حذف اختبار تشخيصي
+    document.querySelectorAll('.delete-diagnostic').forEach(button => {
+        button.addEventListener('click', function() {
+            const diagnosticId = this.dataset.diagnosticId;
+            if (confirm('هل أنت متأكد من حذف هذا الاختبار التشخيصي؟')) {
+                fetch(`/teacher/diagnostic/${diagnosticId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        });
+    });
+    
+    // حذف تذكير
+    document.querySelectorAll('.delete-reminder').forEach(button => {
+        button.addEventListener('click', function() {
+            const reminderId = this.dataset.reminderId;
+            if (confirm('هل أنت متأكد من حذف هذا التذكير؟')) {
+                fetch(`/teacher/reminder/${reminderId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
