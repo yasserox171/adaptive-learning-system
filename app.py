@@ -207,21 +207,12 @@ class Section(db.Model):
 
 
 class Diagnostic(db.Model):
-    """
-    ========================================================================
-    نموذج الاختبار التشخيصي (Diagnostic Model)
-    ------------------------------------------------------------------------
-    اختبار قصير في بداية كل فقرة لتحديد مستوى الطالب
-    النتيجة تحدد المسار التعليمي (مستوى 1 أو 2)
-    ========================================================================
-    """
     __tablename__ = 'diagnostics'
-    
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     question = db.Column(db.Text, nullable=False, comment="سؤال الاختبار")
+    question_type = db.Column(db.String(20), default='single_choice', comment="نوع السؤال: single_choice, multiple_choice, fill_blank")
     options = db.Column(db.Text, comment="خيارات الإجابة بتنسيق JSON")
-    correct_answer = db.Column(db.String(10), nullable=False, comment="الإجابة الصحيحة")
+    correct_answer = db.Column(db.Text, nullable=False, comment="الإجابة الصحيحة (قد تكون متعددة)")
     explanation = db.Column(db.Text, comment="شرح الإجابة")
     section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False, index=True)
     
@@ -234,9 +225,20 @@ class Diagnostic(db.Model):
         except (json.JSONDecodeError, TypeError):
             return []
     
+    def get_correct_answers_list(self):
+        """تحويل الإجابات الصحيحة إلى قائمة"""
+        if not self.correct_answer:
+            return []
+        try:
+            if self.question_type == 'multiple_choice':
+                return json.loads(self.correct_answer)
+            else:
+                return [self.correct_answer]
+        except (json.JSONDecodeError, TypeError):
+            return [self.correct_answer]
+    
     def __repr__(self):
-        return f'<Diagnostic {self.id} (Section: {self.section_id})>'
-
+        return f'<Diagnostic {self.id} (Type: {self.question_type})>'
 
 class Reminder(db.Model):
     """
@@ -406,16 +408,14 @@ def reminder_to_dict(reminder):
     }
 
 def diagnostic_to_dict(diagnostic):
-    """
-    ========================================================================
-    تحويل كائن Diagnostic إلى Dictionary
-    ========================================================================
-    """
+    """تحويل كائن Diagnostic إلى Dictionary"""
     return {
         'id': diagnostic.id,
         'question': diagnostic.question,
+        'question_type': diagnostic.question_type,
         'options': diagnostic.get_options_list(),
         'correct_answer': diagnostic.correct_answer,
+        'correct_answers_list': diagnostic.get_correct_answers_list(),
         'explanation': diagnostic.explanation or ''
     }
 
@@ -853,13 +853,7 @@ def edit_section(section_id):
 @login_required
 @teacher_required
 def create_diagnostic(section_id):
-    """
-    ========================================================================
-    إنشاء اختبار تشخيصي (Create Diagnostic)
-    ------------------------------------------------------------------------
-    استمارة لإضافة اختبار تشخيصي للفقرة
-    ========================================================================
-    """
+    """إنشاء اختبار تشخيصي مع أنواع متعددة"""
     section = Section.query.get_or_404(section_id)
     lesson = section.lesson
     
@@ -869,25 +863,75 @@ def create_diagnostic(section_id):
     
     if request.method == 'POST':
         question = request.form.get('question', '').strip()
-        option1 = request.form.get('option1', '').strip()
-        option2 = request.form.get('option2', '').strip()
-        option3 = request.form.get('option3', '').strip()
-        option4 = request.form.get('option4', '').strip()
-        correct_answer = request.form.get('correct_answer', '').strip()
+        question_type = request.form.get('question_type', 'single_choice')
         explanation = request.form.get('explanation', '').strip()
         
         # التحقق من صحة المدخلات
-        if not question or not correct_answer:
-            flash('⚠️ السؤال والإجابة الصحيحة مطلوبان', 'warning')
+        if not question:
+            flash('⚠️ سؤال الاختبار مطلوب', 'warning')
             return redirect(url_for('create_diagnostic', section_id=section_id))
         
-        # تحويل الخيارات إلى JSON
-        options = json.dumps([option1, option2, option3, option4])
+        # معالجة حسب نوع السؤال
+        if question_type == 'single_choice':
+            # خيار واحد صحيح
+            option1 = request.form.get('option1', '').strip()
+            option2 = request.form.get('option2', '').strip()
+            option3 = request.form.get('option3', '').strip()
+            option4 = request.form.get('option4', '').strip()
+            correct_answer = request.form.get('correct_answer_single', '').strip()
+            
+            if not correct_answer:
+                flash('⚠️ يجب اختيار الإجابة الصحيحة', 'warning')
+                return redirect(url_for('create_diagnostic', section_id=section_id))
+            
+            # تحويل الخيارات إلى JSON
+            options = json.dumps([option1, option2, option3, option4])
+            correct_answer_json = correct_answer
+            
+        elif question_type == 'multiple_choice':
+            # إجابات متعددة صحيحة
+            num_options = request.form.get('num_options', 4, type=int)
+            options_list = []
+            correct_answers = []
+            
+            for i in range(1, num_options + 1):
+                option = request.form.get(f'option{i}', '').strip()
+                if option:  # فقط أضف الخيارات غير الفارغة
+                    options_list.append(option)
+                    
+                    # التحقق إذا كان هذا الخيار صحيحاً
+                    is_correct = request.form.get(f'correct_option{i}', 'off') == 'on'
+                    if is_correct:
+                        correct_answers.append(option)
+            
+            if not correct_answers:
+                flash('⚠️ يجب اختيار إجابة صحيحة واحدة على الأقل', 'warning')
+                return redirect(url_for('create_diagnostic', section_id=section_id))
+            
+            options = json.dumps(options_list)
+            correct_answer_json = json.dumps(correct_answers)
+            
+        elif question_type == 'fill_blank':
+            # إملاء الفراغ
+            correct_answer = request.form.get('correct_answer_fill', '').strip()
+            
+            if not correct_answer:
+                flash('⚠️ الإجابة الصحيحة مطلوبة', 'warning')
+                return redirect(url_for('create_diagnostic', section_id=section_id))
+            
+            options = json.dumps([])  # لا توجد خيارات
+            correct_answer_json = correct_answer
+            
+        else:
+            flash('❌ نوع السؤال غير صالح', 'danger')
+            return redirect(url_for('create_diagnostic', section_id=section_id))
         
+        # إنشاء الاختبار التشخيصي
         diagnostic = Diagnostic(
             question=question,
+            question_type=question_type,
             options=options,
-            correct_answer=correct_answer,
+            correct_answer=correct_answer_json,
             explanation=explanation,
             section_id=section_id
         )
@@ -899,7 +943,6 @@ def create_diagnostic(section_id):
         return redirect(url_for('edit_section', section_id=section_id))
     
     return render_template('teacher/create_diagnostic.html', section=section)
-
 @app.route('/teacher/section/<int:section_id>/reminder/new', methods=['GET', 'POST'])
 @login_required
 @teacher_required
@@ -1081,47 +1124,67 @@ def delete_section(section_id):
 # =============================================================================
 # القسم 9: واجهات API (API Routes)
 # =============================================================================
-
 @app.route('/api/diagnostic/<int:diagnostic_id>', methods=['POST'])
 @login_required
 def submit_diagnostic(diagnostic_id):
-    """
-    ========================================================================
-    تقديم إجابة الاختبار التشخيصي (Submit Diagnostic)
-    ------------------------------------------------------------------------
-    API لتسجيل إجابة الطالب على الاختبار التشخيصي
-    تحدد مستوى الطالب (1 أو 2) بناءً على النتيجة
-    ========================================================================
-    """
+    """تقديم إجابة الاختبار التشخيصي (جميع الأنواع)"""
     diagnostic = Diagnostic.query.get_or_404(diagnostic_id)
     data = request.get_json()
     
     if not data or 'answer' not in data:
         return jsonify({'success': False, 'message': 'بيانات غير صالحة'}), 400
     
-    # التحقق من صحة الإجابة
-    is_correct = data['answer'] == diagnostic.correct_answer
-    score = 10 if is_correct else 0
-    level = 1 if score >= 10 else 2  # تحديد المستوى
+    user_answer = data['answer']
+    is_correct = False
+    score = 0
+    
+    # التحقق من الإجابة حسب نوع السؤال
+    if diagnostic.question_type == 'single_choice':
+        # إجابة واحدة صحيحة
+        is_correct = user_answer == diagnostic.correct_answer
+        score = 10 if is_correct else 0
+        
+    elif diagnostic.question_type == 'multiple_choice':
+        # إجابات متعددة صحيحة
+        try:
+            correct_answers = json.loads(diagnostic.correct_answer)
+            user_answers = user_answer if isinstance(user_answer, list) else [user_answer]
+            
+            # التحقق إذا كانت جميع الإجابات الصحيحة مرفوعة
+            is_correct = all(answer in user_answers for answer in correct_answers)
+            score = 10 if is_correct else 0
+            
+        except (json.JSONDecodeError, TypeError):
+            is_correct = False
+            score = 0
+            
+    elif diagnostic.question_type == 'fill_blank':
+        # إملاء الفراغ (حساس لحالة الأحرف)
+        is_correct = user_answer.strip() == diagnostic.correct_answer.strip()
+        score = 10 if is_correct else 0
     
     # حفظ النتيجة
     result = Result(
         student_id=current_user.id,
         diagnostic_id=diagnostic_id,
         is_correct=is_correct,
-        answer=data['answer'],
+        answer=str(user_answer),
         score=score
     )
     
     db.session.add(result)
     db.session.commit()
     
+    level = 1 if score >= 10 else 2  # تحديد المستوى
+    
     return jsonify({
         'success': True,
         'correct': is_correct,
         'score': score,
         'level': level,
-        'explanation': diagnostic.explanation or ''
+        'question_type': diagnostic.question_type,
+        'explanation': diagnostic.explanation or '',
+        'correct_answers': diagnostic.get_correct_answers_list()
     })
 
 @app.route('/api/exercise/<int:exercise_id>', methods=['POST'])
@@ -1207,13 +1270,7 @@ def get_exercises(section_id, level):
 # =============================================================================
 
 def init_database():
-    """
-    ========================================================================
-    تهيئة قاعدة البيانات (Initialize Database)
-    ------------------------------------------------------------------------
-    إنشاء الجداول وإضافة بيانات تجريبية للمرة الأولى
-    ========================================================================
-    """
+    """تهيئة قاعدة البيانات وإنشاء بيانات تجريبية"""
     print("\n" + "=" * 60)
     print("🗃️  جارٍ تهيئة قاعدة البيانات...")
     print("=" * 60)
@@ -1224,7 +1281,8 @@ def init_database():
         print("✅ تم إنشاء جداول قاعدة البيانات")
         
         # 2. التحقق من وجود المعلم الرئيسي
-        if not User.query.filter_by(email='teacher@example.com').first():
+        teacher = User.query.filter_by(email='teacher@example.com').first()
+        if not teacher:
             teacher = User(
                 name='المعلم الإداري',
                 email='teacher@example.com',
@@ -1238,10 +1296,9 @@ def init_database():
             print("📌 المعلم الرئيسي موجود مسبقاً")
         
         # 3. التحقق من وجود درس تجريبي
-        if not Lesson.query.first():
-            teacher = User.query.filter_by(user_type='teacher').first()
-            
-            # إنشاء درس تجريبي
+        lesson = Lesson.query.filter_by(title='مقدمة في الرياضيات').first()
+        if not lesson:
+            # إنشاء درس تجريبي (يجب حفظه أولاً للحصول على ID)
             lesson = Lesson(
                 title='مقدمة في الرياضيات',
                 description='تعلم أساسيات العمليات الحسابية',
@@ -1251,27 +1308,47 @@ def init_database():
                 is_published=True
             )
             db.session.add(lesson)
-            
-            # إنشاء فقرة تجريبية
-            section = Section(
-                title='الجمع والطرح',
-                content='<h3>مرحباً بك في درس الرياضيات</h3><p>سنتعلم معاً أساسيات الجمع والطرح.</p>',
-                lesson_id=lesson.id,
-                order=1
-            )
-            db.session.add(section)
-            
-            # إنشاء اختبار تشخيصي تجريبي
-            diagnostic = Diagnostic(
-                question='ما هو ناتج 5 + 3؟',
-                options=json.dumps(['6', '7', '8', '9']),
-                correct_answer='8',
-                explanation='5 + 3 = 8',
-                section_id=section.id
-            )
-            db.session.add(diagnostic)
-            
-            # إنشاء تذكير للمستوى المتقدم
+            db.session.commit()  # ⚠️ مهم: حفظ الدرس أولاً للحصول على ID
+            print("✅ تم إنشاء درس تجريبي")
+        else:
+            print("📌 الدرس التجريبي موجود مسبقاً")
+        
+        # 4. التحقق من وجود فقرة تجريبية
+        section = Section.query.filter_by(title='الجمع والطرح').first()
+        if not section:
+            # تأكد من أن lesson.id موجود (يجب أن يكون موجوداً بعد commit)
+            if lesson and lesson.id:
+                section = Section(
+                    title='الجمع والطرح',
+                    content='<h3>مرحباً بك في درس الرياضيات</h3><p>سنتعلم معاً أساسيات الجمع والطرح.</p>',
+                    lesson_id=lesson.id,  # ⚠️ استخدام lesson.id بعد الحفظ
+                    order=1
+                )
+                db.session.add(section)
+                print("✅ تم إنشاء فقرة تجريبية")
+            else:
+                print("⚠️ تحذير: لم يتم العثور على معرف الدرس")
+        
+        # 5. التحقق من وجود اختبار تشخيصي تجريبي
+        diagnostic = Diagnostic.query.filter_by(question='ما هو ناتج 5 + 3؟').first()
+        if not diagnostic:
+            # تأكد من أن section.id موجود
+            if section and section.id:
+                import json
+                diagnostic = Diagnostic(
+                    question='ما هو ناتج 5 + 3؟',
+                    question_type='single_choice',
+                    options=json.dumps(['6', '7', '8', '9']),
+                    correct_answer='8',
+                    explanation='5 + 3 = 8',
+                    section_id=section.id
+                )
+                db.session.add(diagnostic)
+                print("✅ تم إنشاء اختبار تشخيصي تجريبي")
+        
+        # 6. التحقق من وجود تذكيرات تجريبية
+        reminder1 = Reminder.query.filter_by(title='مراجعة سريعة للجمع').first()
+        if not reminder1 and section and section.id:
             reminder1 = Reminder(
                 reminder_type=1,
                 title='مراجعة سريعة للجمع',
@@ -1279,8 +1356,9 @@ def init_database():
                 section_id=section.id
             )
             db.session.add(reminder1)
-            
-            # إنشاء تذكير للمستوى الأساسي
+        
+        reminder2 = Reminder.query.filter_by(title='شرح مفصل للجمع').first()
+        if not reminder2 and section and section.id:
             reminder2 = Reminder(
                 reminder_type=2,
                 title='شرح مفصل للجمع',
@@ -1288,49 +1366,60 @@ def init_database():
                 section_id=section.id
             )
             db.session.add(reminder2)
-            
-            # إنشاء تمارين متنوعة
-            exercises = [
-                Exercise(
-                    title='تمرين أساسي',
-                    content='ما هو ناتج 4 + 2؟',
-                    level=0,
-                    section_id=section.id,
-                    correct_answer='6',
-                    explanation='4 + 2 = 6'
-                ),
-                Exercise(
-                    title='تمرين متقدم',
-                    content='ما هو ناتج 12 + 15؟',
-                    level=1,
-                    section_id=section.id,
-                    correct_answer='27',
-                    explanation='12 + 15 = 27'
-                ),
-                Exercise(
-                    title='تمرين علاجي',
-                    content='ما هو ناتج 1 + 1؟',
-                    level=2,
-                    section_id=section.id,
-                    correct_answer='2',
-                    explanation='1 + 1 = 2'
-                )
-            ]
-            
-            for exercise in exercises:
-                db.session.add(exercise)
-            
-            db.session.commit()
-            print("✅ تم إنشاء بيانات تعليمية تجريبية")
-        else:
-            print("📌 البيانات التجريبية موجودة مسبقاً")
         
-        # 4. عرض ملخص قاعدة البيانات
+        # 7. التحقق من وجود تمارين تجريبية
+        if section and section.id:
+            exercises_count = Exercise.query.filter_by(section_id=section.id).count()
+            if exercises_count == 0:
+                exercises = [
+                    Exercise(
+                        title='تمرين أساسي',
+                        content='ما هو ناتج 4 + 2؟',
+                        level=0,
+                        section_id=section.id,
+                        correct_answer='6',
+                        explanation='4 + 2 = 6'
+                    ),
+                    Exercise(
+                        title='تمرين متقدم',
+                        content='ما هو ناتج 12 + 15؟',
+                        level=1,
+                        section_id=section.id,
+                        correct_answer='27',
+                        explanation='12 + 15 = 27'
+                    ),
+                    Exercise(
+                        title='تمرين علاجي',
+                        content='ما هو ناتج 1 + 1؟',
+                        level=2,
+                        section_id=section.id,
+                        correct_answer='2',
+                        explanation='1 + 1 = 2'
+                    )
+                ]
+                
+                for exercise in exercises:
+                    db.session.add(exercise)
+                
+                print("✅ تم إنشاء تمارين تجريبية")
+        
+        # 8. حفظ جميع التغييرات في النهاية
+        try:
+            db.session.commit()
+            print("✅ تم حفظ جميع البيانات في قاعدة البيانات")
+        except Exception as e:
+            print(f"❌ خطأ في حفظ البيانات: {e}")
+            db.session.rollback()
+        
+        # 9. عرض ملخص قاعدة البيانات
         print("\n📊 ملخص قاعدة البيانات:")
         print(f"   👨‍🏫 المعلمون: {User.query.filter_by(user_type='teacher').count()}")
         print(f"   👨‍🎓 الطلاب: {User.query.filter_by(user_type='student').count()}")
         print(f"   📚 الدروس: {Lesson.query.count()}")
         print(f"   📝 الفقرات: {Section.query.count()}")
+        print(f"   ❓ الاختبارات التشخيصية: {Diagnostic.query.count()}")
+        print(f"   💡 التذكيرات: {Reminder.query.count()}")
+        print(f"   📝 التمارين: {Exercise.query.count()}")
         
         print("\n🎉 قاعدة البيانات جاهزة للاستخدام!")
 

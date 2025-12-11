@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}إنشاء اختبار تشخيصي{% endblock %}
+{% block title %}إنشاء اختبار تشخيصي متقدم{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -11,59 +11,117 @@
                 <li class="breadcrumb-item"><a href="{{ url_for('teacher_lessons') }}">الدروس</a></li>
                 <li class="breadcrumb-item"><a href="{{ url_for('edit_lesson', lesson_id=section.lesson.id) }}">{{ section.lesson.title }}</a></li>
                 <li class="breadcrumb-item"><a href="{{ url_for('edit_section', section_id=section.id) }}">{{ section.title }}</a></li>
-                <li class="breadcrumb-item active">اختبار تشخيصي</li>
+                <li class="breadcrumb-item active">اختبار تشخيصي متقدم</li>
             </ol>
         </nav>
         
         <div class="card">
             <div class="card-header bg-warning">
-                <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> اختبار تشخيصي</h4>
+                <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> اختبار تشخيصي متقدم</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('create_diagnostic', section_id=section.id) }}">
-                    <div class="mb-3">
-                        <label for="question" class="form-label">سؤال الاختبار</label>
-                        <textarea class="form-control" id="question" name="question" rows="3" required></textarea>
-                        <div class="form-text">صيغة السؤال التي ستظهر للطالب</div>
-                    </div>
+                <form method="POST" action="{{ url_for('create_diagnostic', section_id=section.id) }}" id="diagnosticForm">
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="option1" class="form-label">الخيار الأول</label>
-                            <input type="text" class="form-control" id="option1" name="option1" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="option2" class="form-label">الخيار الثاني</label>
-                            <input type="text" class="form-control" id="option2" name="option2" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="option3" class="form-label">الخيار الثالث</label>
-                            <input type="text" class="form-control" id="option3" name="option3" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="option4" class="form-label">الخيار الرابع</label>
-                            <input type="text" class="form-control" id="option4" name="option4" required>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="correct_answer" class="form-label">الإجابة الصحيحة</label>
-                        <select class="form-select" id="correct_answer" name="correct_answer" required>
-                            <option value="">اختر الإجابة الصحيحة</option>
-                            <option value="option1">الخيار الأول</option>
-                            <option value="option2">الخيار الثاني</option>
-                            <option value="option3">الخيار الثالث</option>
-                            <option value="option4">الخيار الرابع</option>
+                    <!-- نوع السؤال -->
+                    <div class="mb-4">
+                        <label for="question_type" class="form-label fw-bold">نوع السؤال</label>
+                        <select class="form-select" id="question_type" name="question_type" required onchange="showQuestionTypeFields()">
+                            <option value="single_choice">اختيار من متعدد (إجابة واحدة)</option>
+                            <option value="multiple_choice">اختيار من متعدد (إجابات متعددة)</option>
+                            <option value="fill_blank">إملاء الفراغ</option>
                         </select>
-                        <div class="form-text">اختر الخيار الصحيح من القائمة</div>
+                        <div class="form-text">اختر نوع السؤال المناسب</div>
                     </div>
                     
+                    <!-- نص السؤال -->
                     <div class="mb-3">
-                        <label for="explanation" class="form-label">شرح الإجابة</label>
-                        <textarea class="form-control" id="explanation" name="explanation" rows="3"></textarea>
+                        <label for="question" class="form-label fw-bold">نص السؤال</label>
+                        <textarea class="form-control" id="question" name="question" rows="3" required 
+                                  placeholder="أدخل نص السؤال هنا..."></textarea>
+                        <div class="form-text">اكتب السؤال بوضوح</div>
+                    </div>
+                    
+                    <!-- قسم الاختيار من متعدد (إجابة واحدة) -->
+                    <div id="single_choice_section" class="question-type-section">
+                        <h5 class="mb-3">خيارات الإجابة (اختيار واحد)</h5>
+                        
+                        <!-- عدد الخيارات -->
+                        <div class="mb-3">
+                            <label for="num_options_single" class="form-label">عدد الخيارات</label>
+                            <select class="form-select" id="num_options_single" onchange="generateOptions('single', this.value)">
+                                <option value="2">2 خيارات</option>
+                                <option value="3">3 خيارات</option>
+                                <option value="4" selected>4 خيارات</option>
+                                <option value="5">5 خيارات</option>
+                                <option value="6">6 خيارات</option>
+                            </select>
+                        </div>
+                        
+                        <!-- حاويات الخيارات -->
+                        <div id="single_options_container">
+                            <!-- سيتم توليد الخيارات هنا ديناميكياً -->
+                        </div>
+                        
+                        <!-- الإجابة الصحيحة -->
+                        <div class="mb-3">
+                            <label for="correct_answer_single" class="form-label">الإجابة الصحيحة</label>
+                            <select class="form-select" id="correct_answer_single" name="correct_answer_single" required>
+                                <!-- سيتم ملؤه ديناميكياً -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- قسم الاختيار من متعدد (إجابات متعددة) -->
+                    <div id="multiple_choice_section" class="question-type-section" style="display: none;">
+                        <h5 class="mb-3">خيارات الإجابة (اختيارات متعددة)</h5>
+                        
+                        <!-- عدد الخيارات -->
+                        <div class="mb-3">
+                            <label for="num_options_multiple" class="form-label">عدد الخيارات</label>
+                            <select class="form-select" id="num_options_multiple" onchange="generateOptions('multiple', this.value)">
+                                <option value="2">2 خيارات</option>
+                                <option value="3">3 خيارات</option>
+                                <option value="4" selected>4 خيارات</option>
+                                <option value="5">5 خيارات</option>
+                                <option value="6">6 خيارات</option>
+                            </select>
+                        </div>
+                        
+                        <!-- حاويات الخيارات -->
+                        <div id="multiple_options_container">
+                            <!-- سيتم توليد الخيارات هنا ديناميكياً -->
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> اختر الخيارات الصحيحة بوضع علامة ✓
+                        </div>
+                    </div>
+                    
+                    <!-- قسم إملاء الفراغ -->
+                    <div id="fill_blank_section" class="question-type-section" style="display: none;">
+                        <h5 class="mb-3">إملاء الفراغ</h5>
+                        
+                        <div class="mb-3">
+                            <label for="correct_answer_fill" class="form-label">الإجابة الصحيحة</label>
+                            <input type="text" class="form-control" id="correct_answer_fill" name="correct_answer_fill" 
+                                   placeholder="أدخل الإجابة الصحيحة...">
+                            <div class="form-text">اكتب الإجابة الصحيحة التي يجب أن يدخلها الطالب</div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> سيتم مقارنة إجابة الطالب مع هذه الإجابة (حساسة لحالة الأحرف)
+                        </div>
+                    </div>
+                    
+                    <!-- شرح الإجابة -->
+                    <div class="mb-4">
+                        <label for="explanation" class="form-label fw-bold">شرح الإجابة</label>
+                        <textarea class="form-control" id="explanation" name="explanation" rows="3" 
+                                  placeholder="شرح طريقة حل السؤال..."></textarea>
                         <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته على السؤال</div>
                     </div>
                     
+                    <!-- التنبيهات -->
                     <div class="alert alert-info">
                         <h6><i class="bi bi-lightbulb"></i> تذكر:</h6>
                         <p class="mb-0">
@@ -72,7 +130,8 @@
                         </p>
                     </div>
                     
-                    <div class="d-flex justify-content-between">
+                    <!-- أزرار الإجراء -->
+                    <div class="d-flex justify-content-between mt-4">
                         <a href="{{ url_for('edit_section', section_id=section.id) }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-right"></i> إلغاء
                         </a>
@@ -85,4 +144,126 @@
         </div>
     </div>
 </div>
+
+<style>
+.question-type-section {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.option-item {
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+}
+
+.option-item:hover {
+    background-color: #f8f9fa;
+}
+
+.correct-checkbox {
+    transform: scale(1.2);
+}
+</style>
+
+<script>
+// توليد الخيارات ديناميكياً
+function generateOptions(type, count) {
+    const containerId = type === 'single' ? 'single_options_container' : 'multiple_options_container';
+    const container = document.getElementById(containerId);
+    const selectElement = document.getElementById(`correct_answer_${type}`);
+    
+    container.innerHTML = '';
+    if (selectElement) selectElement.innerHTML = '';
+    
+    for (let i = 1; i <= parseInt(count); i++) {
+        if (type === 'single') {
+            // خيارات الإجابة الواحدة
+            container.innerHTML += `
+                <div class="option-item">
+                    <div class="input-group">
+                        <span class="input-group-text">${i}</span>
+                        <input type="text" class="form-control" 
+                               id="option${i}" name="option${i}" 
+                               placeholder="أدخل الخيار ${i}..." required>
+                    </div>
+                </div>
+            `;
+            
+            // إضافة إلى قائمة الإجابات الصحيحة
+            selectElement.innerHTML += `<option value="option${i}">الخيار ${i}</option>`;
+            
+        } else if (type === 'multiple') {
+            // خيارات الإجابات المتعددة
+            container.innerHTML += `
+                <div class="option-item d-flex align-items-center">
+                    <div class="form-check me-3">
+                        <input class="form-check-input correct-checkbox" type="checkbox" 
+                               id="correct_option${i}" name="correct_option${i}">
+                        <label class="form-check-label fw-bold" for="correct_option${i}">
+                            ✓
+                        </label>
+                    </div>
+                    <div class="flex-grow-1">
+                        <input type="text" class="form-control" 
+                               id="option${i}" name="option${i}" 
+                               placeholder="أدخل الخيار ${i}..." required>
+                    </div>
+                </div>
+            `;
+        }
+    }
+}
+
+// إظهار/إخفاء الحقول حسب نوع السؤال
+function showQuestionTypeFields() {
+    const questionType = document.getElementById('question_type').value;
+    
+    // إخفاء جميع الأقسام
+    document.querySelectorAll('.question-type-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // إظهار القسم المطلوب
+    document.getElementById(`${questionType}_section`).style.display = 'block';
+    
+    // توليد الخيارات الافتراضية
+    if (questionType === 'single_choice') {
+        generateOptions('single', 4);
+    } else if (questionType === 'multiple_choice') {
+        generateOptions('multiple', 4);
+    }
+}
+
+// التحقق من صحة النموذج قبل الإرسال
+document.getElementById('diagnosticForm').addEventListener('submit', function(e) {
+    const questionType = document.getElementById('question_type').value;
+    
+    if (questionType === 'multiple_choice') {
+        // التحقق من وجود إجابة صحيحة واحدة على الأقل
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="correct_option"]:checked');
+        if (checkboxes.length === 0) {
+            e.preventDefault();
+            alert('⚠️ يجب اختيار إجابة صحيحة واحدة على الأقل');
+            return false;
+        }
+    }
+    
+    return true;
+});
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // توليد الخيارات الافتراضية
+    generateOptions('single', 4);
+    
+    // إظهار النوع الافتراضي
+    showQuestionTypeFields();
+});
+</script>
 {% endblock %}

@@ -25,21 +25,58 @@
                         <div class="card-body">
                             <p class="card-text">اختبار تشخيصي لتحديد مستواك في هذه الفقرة</p>
                             {% for diagnostic in section.diagnostics %}
-                            <div id="diagnostic-question">
-                                <h5>{{ diagnostic.question }}</h5>
-                                <div class="options mt-3">
-                                    {% set options = diagnostic.options|from_json %}
-                                    {% for option in options %}
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" name="diagnostic" id="option{{ loop.index }}" value="{{ option }}">
-                                        <label class="form-check-label" for="option{{ loop.index }}">
-                                            {{ option }}
-                                        </label>
-                                    </div>
-                                    {% endfor %}
+                            <!-- تحديث جزء التشخيص في section.html -->
+                                <div id="diagnostic-question">
+                                    <h5>{{ diagnostic.question }}</h5>
+                                    
+                                    {% if diagnostic.question_type == 'single_choice' %}
+                                        <!-- اختيار من متعدد (إجابة واحدة) -->
+                                        <div class="options mt-3">
+                                            {% for option in diagnostic.options %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" 
+                                                    name="diagnostic" 
+                                                    id="option{{ loop.index }}" 
+                                                    value="{{ option }}">
+                                                <label class="form-check-label" for="option{{ loop.index }}">
+                                                    {{ option }}
+                                                </label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        
+                                    {% elif diagnostic.question_type == 'multiple_choice' %}
+                                        <!-- اختيار من متعدد (إجابات متعددة) -->
+                                        <div class="options mt-3">
+                                            {% for option in diagnostic.options %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" 
+                                                    name="diagnostic_multiple" 
+                                                    id="option{{ loop.index }}" 
+                                                    value="{{ option }}">
+                                                <label class="form-check-label" for="option{{ loop.index }}">
+                                                    {{ option }}
+                                                </label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        
+                                    {% elif diagnostic.question_type == 'fill_blank' %}
+                                        <!-- إملاء الفراغ -->
+                                        <div class="options mt-3">
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" 
+                                                    id="fill_blank_answer" 
+                                                    placeholder="أدخل إجابتك هنا...">
+                                            </div>
+                                        </div>
+                                        
+                                    {% endif %}
+                                    
+                                    <button onclick="submitDiagnostic({{ diagnostic.id }})" class="btn btn-primary mt-3">
+                                        تقديم الإجابة
+                                    </button>
                                 </div>
-                                <button onclick="submitDiagnostic({{ diagnostic.id }})" class="btn btn-primary mt-3">تقديم الإجابة</button>
-                            </div>
                             {% endfor %}
                         </div>
                     </div>
@@ -116,26 +153,65 @@
     {% endif %}
     
     function submitDiagnostic(diagnosticId) {
-        const selectedOption = document.querySelector('input[name="diagnostic"]:checked');
-        if (!selectedOption) {
-            alert('يرجى اختيار إجابة');
+        let userAnswer = '';
+        const diagnostic = diagnostics_data.find(d => d.id === diagnosticId);
+        
+        if (!diagnostic) {
+            alert('خطأ في تحميل السؤال');
             return;
         }
         
+        // تجميع الإجابة حسب نوع السؤال
+        if (diagnostic.question_type === 'single_choice') {
+            const selectedOption = document.querySelector('input[name="diagnostic"]:checked');
+            if (!selectedOption) {
+                alert('يرجى اختيار إجابة');
+                return;
+            }
+            userAnswer = selectedOption.value;
+            
+        } else if (diagnostic.question_type === 'multiple_choice') {
+            const selectedOptions = document.querySelectorAll('input[name="diagnostic_multiple"]:checked');
+            if (selectedOptions.length === 0) {
+                alert('يرجى اختيار إجابة واحدة على الأقل');
+                return;
+            }
+            userAnswer = Array.from(selectedOptions).map(option => option.value);
+            
+        } else if (diagnostic.question_type === 'fill_blank') {
+            const answerInput = document.getElementById('fill_blank_answer');
+            if (!answerInput.value.trim()) {
+                alert('يرجى إدخال إجابة');
+                return;
+            }
+            userAnswer = answerInput.value.trim();
+        }
+        
+        // إرسال الإجابة
         fetch(`/api/diagnostic/${diagnosticId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ answer: selectedOption.value })
+            body: JSON.stringify({ answer: userAnswer })
         })
         .then(response => response.json())
         .then(data => {
-            studentLevel = data.level;
-            document.getElementById('stage-diagnostic').style.display = 'none';
-            showStage('stage-reminders');
-            loadReminders({{ section.id }}, studentLevel);
+            if (data.success) {
+                studentLevel = data.level;
+                document.getElementById('stage-diagnostic').style.display = 'none';
+                showStage('stage-reminders');
+                loadReminders({{ section.id }}, studentLevel);
+                
+                // عرض النتيجة
+                showDiagnosticResult(data);
+            }
         });
+    }
+
+    function showDiagnosticResult(data) {
+        // يمكنك إضافة عرض النتائج هنا
+        console.log('نتيجة التشخيص:', data);
     }
     
     function loadReminders(sectionId, level) {
