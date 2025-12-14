@@ -1,223 +1,120 @@
-"""
-===============================================================================
-app.py - نظام التعلم التكيفي الكامل
-إصدار متوافق مع Flask 2.3.3 و SQLAlchemy 3.0.5
-===============================================================================
-نظام تعليمي تكيفي يتكيف مع مستوى كل طالب حسب أدائه في الاختبارات التشخيصية
-الميزات:
-1. نظام مستخدمين مزدوج (طلاب ومعلمين)
-2. نظام تعليمي تكيفي بخمس مراحل
-3. واجهة إدارة كاملة للمعلمين
-4. قاعدة بيانات علائقية متكاملة
-5. واجهة مستخدم عربية متجاوبة
-===============================================================================
-"""
-
 # =============================================================================
-# القسم 1: استيراد المكتبات والتهيئة
+# app.py - نظام التعلم التكيفي الكامل
 # =============================================================================
 
 import sys
 import os
 import json
 import re
+import secrets
 from datetime import datetime
 from functools import wraps
 
-# طباعة معلومات النظام للمساعدة في استكشاف الأخطاء
-print("=" * 70)
-print("🚀 بدء تشغيل نظام التعلم التكيفي")
-print("=" * 70)
-print(f"🐍 إصدار Python: {sys.version}")
-print(f"📁 المسار الحالي: {os.getcwd()}")
-print(f"📊 نظام التشغيل: {os.name}")
-
-try:
-    # =========================================================================
-    # 1.1 استيراد مكتبات Flask الأساسية
-    # =========================================================================
-    print("\n📦 جارٍ استيراد مكتبات Flask...")
-    
-    from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-    print("   ✅ Flask - إطار العمل الرئيسي")
-    
-    from flask_sqlalchemy import SQLAlchemy
-    print("   ✅ Flask-SQLAlchemy - إدارة قواعد البيانات")
-    
-    from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-    print("   ✅ Flask-Login - إدارة جلسات المستخدمين")
-    
-    from werkzeug.security import generate_password_hash, check_password_hash
-    print("   ✅ Werkzeug Security - تشفير كلمات المرور")
-    
-    from markupsafe import Markup
-    print("   ✅ MarkupSafe - معالجة النصوص الآمنة")
-    
-    print("\n🎉 تم استيراد جميع المكتبات بنجاح!")
-    
-except ImportError as e:
-    print(f"\n❌ خطأ في استيراد المكتبات: {e}")
-    print("\n🔧 حل المشكلة:")
-    print("1. تأكد من تفعيل البيئة الافتراضية:")
-    print("   venv\\Scripts\\activate")
-    print("\n2. قم بتثبيت المكتبات المطلوبة:")
-    print("   pip install Flask==2.3.3 Werkzeug==2.3.7 Flask-Login==0.6.3 Flask-SQLAlchemy==3.0.5")
-    sys.exit(1)
-
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from markupsafe import Markup
 
 # =============================================================================
-# القسم 2: تهيئة تطبيق Flask والإعدادات
+# تهيئة التطبيق
 # =============================================================================
-
-print("\n⚙️  جارٍ تهيئة تطبيق Flask...")
-
-# إنشاء تطبيق Flask مع مجلدات القوالب والملفات الثابتة
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static')
 
-# =========================================================================
-# 2.1 إعدادات التطبيق الأساسية
-# =========================================================================
-app.config['SECRET_KEY'] = 'dev-secret-key-change-this-in-production'  # تغيير هذا في الإنتاج
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///adaptive_learning.db'  # قاعدة بيانات SQLite
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # تحسين الأداء
-app.config['TEMPLATES_AUTO_RELOAD'] = True  # إعادة تحميل القوالب تلقائياً
+app.config['SECRET_KEY'] = secrets.token_hex(32)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///adaptive_learning.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
 
-# =========================================================================
-# 2.2 تهيئة الإضافات (Extensions)
-# =========================================================================
-db = SQLAlchemy(app)  # تهيئة قاعدة البيانات
-
-# تهيئة نظام إدارة تسجيل الدخول
+db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'  # الصفحة التي يتم توجيه المستخدم إليها عند الحاجة للتسجيل
+login_manager.login_view = 'login'
 login_manager.login_message = '⚠️ يرجى تسجيل الدخول للوصول إلى هذه الصفحة'
 login_manager.login_message_category = 'warning'
 
-
 # =============================================================================
-# القسم 3: نماذج قاعدة البيانات (Database Models)
+# نماذج قاعدة البيانات
 # =============================================================================
-print("🗄️  جارٍ تعريف نماذج قاعدة البيانات...")
 
 class User(UserMixin, db.Model):
-    """
-    ========================================================================
-    نموذج المستخدم (User Model)
-    ------------------------------------------------------------------------
-    يمثل مستخدمي النظام (طلاب أو معلمين)
-    يحتوي على معلومات الحساب الأساسية وعلاقات مع النماذج الأخرى
-    ========================================================================
-    """
     __tablename__ = 'users'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(100), nullable=False, comment="الاسم الكامل للمستخدم")
-    email = db.Column(db.String(100), unique=True, nullable=False, index=True, comment="البريد الإلكتروني (فريد)")
-    password_hash = db.Column(db.String(200), nullable=False, comment="كلمة المرور مشفرة")
-    user_type = db.Column(db.String(20), default='student', comment="نوع المستخدم: student أو teacher")
-    level = db.Column(db.Integer, default=1, comment="المستوى التعليمي الحالي")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="تاريخ إنشاء الحساب")
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(200), nullable=False)
+    user_type = db.Column(db.String(20), default='student')
+    level = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # العلاقات (Foreign Keys & Relationships)
     results = db.relationship('Result', backref='student', lazy=True, cascade='all, delete-orphan')
     created_lessons = db.relationship('Lesson', backref='teacher', lazy=True, cascade='all, delete-orphan')
     
-    # طرق (Methods)
     def set_password(self, password):
-        """تشفير كلمة المرور قبل حفظها"""
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
-        """التحقق من صحة كلمة المرور"""
         return check_password_hash(self.password_hash, password)
     
     def is_teacher(self):
-        """التحقق إذا كان المستخدم معلم"""
         return self.user_type == 'teacher'
     
     def __repr__(self):
-        """تمثيل نصي للكائن (لأغراض التصحيح)"""
         return f'<User {self.id}: {self.name} ({self.user_type})>'
 
 
 class Lesson(db.Model):
-    """
-    ========================================================================
-    نموذج الدرس (Lesson Model)
-    ------------------------------------------------------------------------
-    يمثل درساً تعليمياً يحتوي على فقرات متعددة
-    يمكن إنشاؤه من قبل المعلمين وعرضه للطلاب
-    ========================================================================
-    """
     __tablename__ = 'lessons'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String(200), nullable=False, comment="عنوان الدرس")
-    description = db.Column(db.Text, comment="وصف مختصر للدرس")
-    level_id = db.Column(db.Integer, default=1, comment="المستوى التعليمي للدرس (1-3)")
-    order = db.Column(db.Integer, default=0, comment="ترتيب العرض بين الدروس")
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment="المعلم المنشئ")
-    is_published = db.Column(db.Boolean, default=False, comment="هل الدرس منشور للطلاب؟")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="تاريخ الإنشاء")
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="تاريخ آخر تعديل")
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    level_id = db.Column(db.Integer, default=1)
+    order = db.Column(db.Integer, default=0)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_published = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # العلاقات
     sections = db.relationship('Section', backref='lesson', lazy=True, 
                                order_by='Section.order', cascade='all, delete-orphan')
-    
-    def __repr__(self):
-        return f'<Lesson {self.id}: {self.title}>'
 
 
 class Section(db.Model):
-    """
-    ========================================================================
-    نموذج الفقرة (Section Model)
-    ------------------------------------------------------------------------
-    يمثل فقرة داخل درس، تحتوي على:
-    1. اختبار تشخيصي
-    2. تذكيرين (للمستويين المتقدم والأساسي)
-    3. تمارين متنوعة
-    ========================================================================
-    """
     __tablename__ = 'sections'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String(200), nullable=False, comment="عنوان الفقرة")
-    content = db.Column(db.Text, nullable=False, comment="المحتوى التعليمي للفقرة")
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
     lesson_id = db.Column(db.Integer, db.ForeignKey('lessons.id'), nullable=False, index=True)
-    order = db.Column(db.Integer, default=0, comment="ترتيب الفقرة داخل الدرس")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="تاريخ الإنشاء")
+    order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # العلاقات
     diagnostics = db.relationship('Diagnostic', backref='section', lazy=True, 
                                   cascade='all, delete-orphan')
     reminders = db.relationship('Reminder', backref='section', lazy=True, 
                                 cascade='all, delete-orphan')
     exercises = db.relationship('Exercise', backref='section', lazy=True, 
                                 cascade='all, delete-orphan')
-    
-    def __repr__(self):
-        return f'<Section {self.id}: {self.title} (Lesson: {self.lesson_id})>'
 
 
 class Diagnostic(db.Model):
     __tablename__ = 'diagnostics'
+    
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    question = db.Column(db.Text, nullable=False, comment="سؤال الاختبار")
-    question_type = db.Column(db.String(20), default='single_choice', comment="نوع السؤال: single_choice, multiple_choice, fill_blank")
-    options = db.Column(db.Text, comment="خيارات الإجابة بتنسيق JSON")
-    correct_answer = db.Column(db.Text, nullable=False, comment="الإجابة الصحيحة (قد تكون متعددة)")
-    explanation = db.Column(db.Text, comment="شرح الإجابة")
+    question = db.Column(db.Text, nullable=False)
+    question_type = db.Column(db.String(20), default='single_choice')
+    options = db.Column(db.Text)
+    correct_answer = db.Column(db.Text, nullable=False)
+    explanation = db.Column(db.Text)
+    points = db.Column(db.Integer, default=10)
     section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False, index=True)
     
     def get_options_list(self):
-        """تحويل خيارات JSON إلى قائمة Python"""
         if not self.options:
             return []
         try:
@@ -226,7 +123,6 @@ class Diagnostic(db.Model):
             return []
     
     def get_correct_answers_list(self):
-        """تحويل الإجابات الصحيحة إلى قائمة"""
         if not self.correct_answer:
             return []
         try:
@@ -236,107 +132,151 @@ class Diagnostic(db.Model):
                 return [self.correct_answer]
         except (json.JSONDecodeError, TypeError):
             return [self.correct_answer]
-    
-    def __repr__(self):
-        return f'<Diagnostic {self.id} (Type: {self.question_type})>'
+
 
 class Reminder(db.Model):
-    """
-    ========================================================================
-    نموذج التذكير (Reminder Model)
-    ------------------------------------------------------------------------
-    مراجعات تعليمية مخصصة حسب مستوى الطالب:
-    - Type 1: للمستوى المتقدم (N ≥ 10)
-    - Type 2: للمستوى الأساسي (N < 10)
-    ========================================================================
-    """
     __tablename__ = 'reminders'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    reminder_type = db.Column(db.Integer, nullable=False, comment="نوع التذكير: 1 (متقدم) أو 2 (أساسي)")
-    title = db.Column(db.String(200), comment="عنوان التذكير")
-    content = db.Column(db.Text, nullable=False, comment="محتوى التذكير التعليمي")
+    reminder_type = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text, nullable=False)
     section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False, index=True)
     
-    # العلاقات
     exercises = db.relationship('Exercise', backref='reminder', lazy=True, 
                                 cascade='all, delete-orphan')
-    
-    def __repr__(self):
-        type_name = "متقدم" if self.reminder_type == 1 else "أساسي"
-        return f'<Reminder {self.id}: {self.title} ({type_name})>'
 
 
 class Exercise(db.Model):
-    """
-    ========================================================================
-    نموذج التمرين (Exercise Model)
-    ------------------------------------------------------------------------
-    تمارين تعليمية متنوعة حسب المستوى:
-    - Level 0: تمرين أساسي (للجميع)
-    - Level 1: تمارين متقدمة (للمستوى 1)
-    - Level 2: تمارين علاجية (للمستوى 2)
-    ========================================================================
-    """
     __tablename__ = 'exercises'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String(200), comment="عنوان التمرين")
-    content = db.Column(db.Text, nullable=False, comment="نص التمرين")
-    level = db.Column(db.Integer, default=0, comment="مستوى التمرين: 0, 1, أو 2")
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text, nullable=False)
+    level = db.Column(db.Integer, default=0)
     section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), index=True)
     reminder_id = db.Column(db.Integer, db.ForeignKey('reminders.id'), index=True)
-    correct_answer = db.Column(db.String(500), nullable=False, comment="الإجابة الصحيحة")
-    explanation = db.Column(db.Text, comment="شرح طريقة الحل")
-    points = db.Column(db.Integer, default=10, comment="عدد النقاط للإجابة الصحيحة")
-    
-    def __repr__(self):
-        level_names = {0: "أساسي", 1: "متقدم", 2: "علاجي"}
-        return f'<Exercise {self.id}: {self.title} ({level_names.get(self.level, "غير معروف")})>'
+    correct_answer = db.Column(db.String(500), nullable=False)
+    explanation = db.Column(db.Text)
+    points = db.Column(db.Integer, default=10)
 
 
 class Result(db.Model):
-    """
-    ========================================================================
-    نموذج النتيجة (Result Model)
-    ------------------------------------------------------------------------
-    يسجل نتائج الطلاب في الاختبارات والتمارين
-    يستخدم لمتابعة التقدم وتحليل الأداء
-    ========================================================================
-    """
     __tablename__ = 'results'
     
-    # الحقول الأساسية
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercises.id'), nullable=False, index=True)
     diagnostic_id = db.Column(db.Integer, db.ForeignKey('diagnostics.id'), index=True)
-    is_correct = db.Column(db.Boolean, nullable=False, comment="هل الإجابة صحيحة؟")
-    answer = db.Column(db.Text, comment="إجابة الطالب")
-    score = db.Column(db.Integer, default=0, comment="الدرجة المحصلة")
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, comment="وقت التسجيل")
+    is_correct = db.Column(db.Boolean, nullable=False)
+    answer = db.Column(db.Text)
+    score = db.Column(db.Integer, default=0)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+# =============================================================================
+# دوال المساعدة والتحقق
+# =============================================================================
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+def teacher_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('⚠️ يرجى تسجيل الدخول أولاً', 'warning')
+            return redirect(url_for('login'))
+        
+        if not current_user.is_teacher():
+            flash('🚫 هذه الصفحة للمعلمين فقط', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def validate_section_form(data):
+    """
+    التحقق من صحة بيانات نموذج الفقرة
+    """
+    errors = []
     
-    def __repr__(self):
-        return f'<Result Student:{self.student_id} Exercise:{self.exercise_id} Score:{self.score}>'
+    if not data.get('title', '').strip():
+        errors.append('عنوان الفقرة مطلوب')
+    
+    if not data.get('content', '').strip():
+        errors.append('محتوى الفقرة مطلوب')
+    
+    return errors
 
+def validate_diagnostic_form(data, question_type):
+    """
+    التحقق من صحة بيانات نموذج الاختبار التشخيصي
+    """
+    errors = []
+    
+    if not data.get('question', '').strip():
+        errors.append('نص السؤال مطلوب')
+    
+    if question_type == 'single_choice':
+        if not data.get('correct_answer_single'):
+            errors.append('الإجابة الصحيحة مطلوبة')
+    
+    elif question_type == 'multiple_choice':
+        has_correct = False
+        for key in data:
+            if key.startswith('correct') and data[key] == 'on':
+                has_correct = True
+                break
+        if not has_correct:
+            errors.append('يجب اختيار إجابة صحيحة واحدة على الأقل')
+    
+    elif question_type == 'fill_blank':
+        if not data.get('correct_answer_fill', '').strip():
+            errors.append('الإجابة الصحيحة مطلوبة')
+    
+    return errors
+
+def calculate_percentage_score(diagnostics, answers):
+    """حساب النسبة المئوية للطالب"""
+    total_points = 0
+    earned_points = 0
+    
+    for diagnostic in diagnostics:
+        total_points += diagnostic.points if diagnostic.points else 10
+        
+        if str(diagnostic.id) in answers:
+            user_answer = answers[str(diagnostic.id)]
+            
+            if diagnostic.question_type == 'single_choice':
+                if user_answer == diagnostic.correct_answer:
+                    earned_points += diagnostic.points if diagnostic.points else 10
+            elif diagnostic.question_type == 'multiple_choice':
+                try:
+                    correct_answers = json.loads(diagnostic.correct_answer)
+                    user_answers = user_answer if isinstance(user_answer, list) else [user_answer]
+                    
+                    if set(user_answers) == set(correct_answers):
+                        earned_points += diagnostic.points if diagnostic.points else 10
+                except:
+                    pass
+            elif diagnostic.question_type == 'fill_blank':
+                correct_answers = [a.strip() for a in diagnostic.correct_answer.split(',')]
+                if user_answer.strip() in correct_answers:
+                    earned_points += diagnostic.points if diagnostic.points else 10
+    
+    if total_points == 0:
+        return 0
+    
+    percentage = (earned_points / total_points) * 100
+    return round(percentage, 2)
 
 # =============================================================================
-# القسم 4: فلاتر Jinja2 المخصصة (Custom Template Filters)
+# فلاتر Jinja2
 # =============================================================================
-print("🎨 جارٍ تعريف فلاتر Jinja2 المخصصة...")
 
 @app.template_filter('from_json')
 def from_json_filter(value):
-    """
-    ========================================================================
-    فلتر from_json
-    ------------------------------------------------------------------------
-    يحول سلسلة JSON إلى كائن Python
-    يستخدم لعرض خيارات الاختبارات التشخيصية
-    ========================================================================
-    """
     if not value:
         return []
     try:
@@ -346,43 +286,19 @@ def from_json_filter(value):
 
 @app.template_filter('striptags')
 def striptags_filter(value):
-    """
-    ========================================================================
-    فلتر striptags
-    ------------------------------------------------------------------------
-    يزيل الوسوم HTML من النص لعرضه كمحتوى نصي خالص
-    ========================================================================
-    """
     if not value:
         return ''
     return re.sub(r'<[^>]*>', '', str(value))
 
 @app.template_filter('safe')
 def safe_filter(value):
-    """
-    ========================================================================
-    فلتر safe
-    ------------------------------------------------------------------------
-    يسمح بعرض HTML دون escaping
-    يستخدم لعرض المحتوى التعليمي الذي يحتوي على تنسيق HTML
-    ========================================================================
-    """
     return Markup(value)
 
-
 # =============================================================================
-# القسم 5: دوال تحويل النماذج (Model Conversion Functions)
+# دوال تحويل النماذج
 # =============================================================================
 
 def exercise_to_dict(exercise):
-    """
-    ========================================================================
-    تحويل كائن Exercise إلى Dictionary
-    ------------------------------------------------------------------------
-    يجعل الكائن قابلاً للتسلسل إلى JSON
-    يستخدم في واجهات API وتحميل البيانات في JavaScript
-    ========================================================================
-    """
     return {
         'id': exercise.id,
         'title': exercise.title or 'تمرين',
@@ -394,11 +310,6 @@ def exercise_to_dict(exercise):
     }
 
 def reminder_to_dict(reminder):
-    """
-    ========================================================================
-    تحويل كائن Reminder إلى Dictionary
-    ========================================================================
-    """
     return {
         'id': reminder.id,
         'title': reminder.title or f'تذكير المستوى {reminder.reminder_type}',
@@ -408,7 +319,6 @@ def reminder_to_dict(reminder):
     }
 
 def diagnostic_to_dict(diagnostic):
-    """تحويل كائن Diagnostic إلى Dictionary"""
     return {
         'id': diagnostic.id,
         'question': diagnostic.question,
@@ -416,98 +326,33 @@ def diagnostic_to_dict(diagnostic):
         'options': diagnostic.get_options_list(),
         'correct_answer': diagnostic.correct_answer,
         'correct_answers_list': diagnostic.get_correct_answers_list(),
-        'explanation': diagnostic.explanation or ''
+        'explanation': diagnostic.explanation or '',
+        'points': diagnostic.points or 10
     }
 
-
 # =============================================================================
-# القسم 6: دوال المساعدة (Helper Functions)
+# المسارات الرئيسية
 # =============================================================================
-print("🔧 جارٍ تعريف دوال المساعدة...")
-
-@login_manager.user_loader
-def load_user(user_id):
-    """
-    ========================================================================
-    تحميل المستخدم من قاعدة البيانات
-    ------------------------------------------------------------------------
-    دالة مطلوبة من قبل Flask-Login
-    تحمل كائن المستخدم من ID المخزن في جلسة المستخدم
-    ========================================================================
-    """
-    return User.query.get(int(user_id))
-
-def teacher_required(f):
-    """
-    ========================================================================
-    ديكوراتور teacher_required
-    ------------------------------------------------------------------------
-    يضمن أن المستخدم المسجل دخولاً هو معلم
-    يحمي مسارات المعلمين من الوصول غير المصرح به
-    ========================================================================
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # التحقق من تسجيل الدخول
-        if not current_user.is_authenticated:
-            flash('⚠️ يرجى تسجيل الدخول أولاً', 'warning')
-            return redirect(url_for('login'))
-        
-        # التحقق من أن المستخدم معلم
-        if not current_user.is_teacher():
-            flash('🚫 هذه الصفحة للمعلمين فقط', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        return f(*args, **kwargs)
-    
-    return decorated_function
-
-
-# =============================================================================
-# القسم 7: مسارات الصفحات العامة (Public Routes)
-# =============================================================================
-print("🌐 جارٍ تعريف مسارات الصفحات...")
 
 @app.route('/')
 def index():
-    """
-    ========================================================================
-    الصفحة الرئيسية (Home Page)
-    ------------------------------------------------------------------------
-    نقطة الدخول الرئيسية للتطبيق
-    إذا كان المستخدم مسجل دخولاً، يتم توجيهه إلى لوحة التحكم
-    وإلا، يتم عرض صفحة الترحيب
-    ========================================================================
-    """
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """
-    ========================================================================
-    صفحة تسجيل الدخول (Login Page)
-    ------------------------------------------------------------------------
-    معالجة تسجيل دخول المستخدمين (طلاب ومعلمين)
-    التحقق من صحة بيانات الاعتماد وإنشاء جلسة المستخدم
-    ========================================================================
-    """
-    # إذا كان المستخدم مسجلاً دخولاً بالفعل
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        # استخراج البيانات من النموذج
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         
-        # البحث عن المستخدم في قاعدة البيانات
         user = User.query.filter_by(email=email).first()
         
-        # التحقق من صحة بيانات الاعتماد
         if user and user.check_password(password):
-            login_user(user)  # إنشاء جلسة المستخدم
+            login_user(user)
             flash(f'✅ مرحباً بعودتك، {user.name}!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -517,43 +362,29 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """
-    ========================================================================
-    صفحة التسجيل (Registration Page)
-    ------------------------------------------------------------------------
-    إنشاء حسابات جديدة للطلاب والمعلمين
-    التحقق من عدم تكرار البريد الإلكتروني
-    ========================================================================
-    """
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        # استخراج البيانات من النموذج
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         user_type = request.form.get('user_type', 'student')
         
-        # التحقق من صحة المدخلات
         if not name or not email or not password:
             flash('⚠️ جميع الحقول مطلوبة', 'warning')
             return redirect(url_for('register'))
         
-        # التحقق من عدم وجود المستخدم مسبقاً
         if User.query.filter_by(email=email).first():
             flash('❌ البريد الإلكتروني مسجل مسبقاً', 'danger')
             return redirect(url_for('register'))
         
-        # إنشاء المستخدم الجديد
         user = User(name=name, email=email, user_type=user_type)
-        user.set_password(password)  # تشفير كلمة المرور
+        user.set_password(password)
         
-        # حفظ المستخدم في قاعدة البيانات
         db.session.add(user)
         db.session.commit()
         
-        # تسجيل دخول المستخدم الجديد
         login_user(user)
         flash(f'🎉 تم إنشاء حسابك بنجاح كـ {user_type}', 'success')
         return redirect(url_for('dashboard'))
@@ -563,13 +394,6 @@ def register():
 @app.route('/logout')
 @login_required
 def logout():
-    """
-    ========================================================================
-    تسجيل الخروج (Logout)
-    ------------------------------------------------------------------------
-    إنهاء جلسة المستخدم الحالية
-    ========================================================================
-    """
     logout_user()
     flash('👋 تم تسجيل الخروج بنجاح', 'info')
     return redirect(url_for('index'))
@@ -577,22 +401,12 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """
-    ========================================================================
-    لوحة التحكم (Dashboard)
-    ------------------------------------------------------------------------
-    الصفحة الرئيسية بعد تسجيل الدخول
-    تعرض واجهات مختلفة للطلاب والمعلمين
-    ========================================================================
-    """
     if current_user.is_teacher():
-        # لوحة تحكم المعلم
         lessons = Lesson.query.filter_by(teacher_id=current_user.id).order_by(Lesson.order).all()
         return render_template('teacher_dashboard.html', 
                              lessons=lessons, 
                              teacher=current_user)
     else:
-        # لوحة تحكم الطالب
         lessons = Lesson.query.filter_by(is_published=True).order_by(Lesson.order).all()
         return render_template('student_dashboard.html', 
                              lessons=lessons, 
@@ -601,16 +415,8 @@ def dashboard():
 @app.route('/lesson/<int:lesson_id>')
 @login_required
 def view_lesson(lesson_id):
-    """
-    ========================================================================
-    عرض الدرس (View Lesson)
-    ------------------------------------------------------------------------
-    عرض صفحة الدرس مع قائمة فقراته
-    ========================================================================
-    """
     lesson = Lesson.query.get_or_404(lesson_id)
     
-    # التحقق من صلاحيات الوصول
     if not lesson.is_published and not current_user.is_teacher():
         flash('⏳ هذا الدرس غير متاح حالياً', 'warning')
         return redirect(url_for('dashboard'))
@@ -620,30 +426,18 @@ def view_lesson(lesson_id):
 @app.route('/section/<int:section_id>')
 @login_required
 def view_section(section_id):
-    """
-    ========================================================================
-    عرض الفقرة (View Section)
-    ------------------------------------------------------------------------
-    عرض صفحة الفقرة مع دورة التعلم التكيفية الكاملة:
-    1. التشخيص → 2. التذكيرات → 3. المحتوى → 4. التمارين
-    ========================================================================
-    """
     section = Section.query.get_or_404(section_id)
     
-    # التحقق من صلاحيات الوصول
     if not section.lesson.is_published and not current_user.is_teacher():
         flash('⏳ هذا الدرس غير متاح حالياً', 'warning')
         return redirect(url_for('dashboard'))
     
-    # تحويل البيانات إلى تنسيق قابل للتسلسل
     diagnostics_data = [diagnostic_to_dict(d) for d in section.diagnostics]
     
-    # تجميع التمارين حسب المستوى
     main_exercises = [exercise_to_dict(ex) for ex in section.exercises if ex.level == 0]
     advanced_exercises = [exercise_to_dict(ex) for ex in section.exercises if ex.level == 1]
     basic_exercises = [exercise_to_dict(ex) for ex in section.exercises if ex.level == 2]
     
-    # التحقق من وجود نتائج تشخيص سابقة للطالب
     diagnostic_result = None
     if section.diagnostics:
         diagnostic = section.diagnostics[0]
@@ -660,22 +454,14 @@ def view_section(section_id):
                          basic_exercises=basic_exercises,
                          diagnostic_result=diagnostic_result)
 
-
 # =============================================================================
-# القسم 8: مسارات المعلمين (Teacher Routes)
+# مسارات المعلمين
 # =============================================================================
 
 @app.route('/teacher/lessons')
 @login_required
 @teacher_required
 def teacher_lessons():
-    """
-    ========================================================================
-    صفحة إدارة الدروس (Manage Lessons)
-    ------------------------------------------------------------------------
-    عرض جميع الدروس التي أنشأها المعلم
-    ========================================================================
-    """
     lessons = Lesson.query.filter_by(teacher_id=current_user.id)\
                .order_by(Lesson.order.desc()).all()
     return render_template('teacher/lessons.html', lessons=lessons)
@@ -684,28 +470,17 @@ def teacher_lessons():
 @login_required
 @teacher_required
 def create_lesson():
-    """
-    ========================================================================
-    إنشاء درس جديد (Create New Lesson)
-    ------------------------------------------------------------------------
-    استمارة لإضافة درس جديد
-    ========================================================================
-    """
     if request.method == 'POST':
-        # استخراج البيانات من النموذج
         title = request.form.get('title', '').strip()
         description = request.form.get('description', '').strip()
         level_id = request.form.get('level_id', 1, type=int)
         
-        # التحقق من صحة المدخلات
         if not title:
             flash('⚠️ عنوان الدرس مطلوب', 'warning')
             return redirect(url_for('create_lesson'))
         
-        # حساب الترتيب التلقائي
         next_order = Lesson.query.filter_by(teacher_id=current_user.id).count() + 1
         
-        # إنشاء الدرس الجديد
         lesson = Lesson(
             title=title,
             description=description,
@@ -726,22 +501,13 @@ def create_lesson():
 @login_required
 @teacher_required
 def edit_lesson(lesson_id):
-    """
-    ========================================================================
-    تعديل درس (Edit Lesson)
-    ------------------------------------------------------------------------
-    استمارة لتعديل معلومات الدرس وإضافة الفقرات
-    ========================================================================
-    """
     lesson = Lesson.query.get_or_404(lesson_id)
     
-    # التحقق من ملكية الدرس
     if lesson.teacher_id != current_user.id:
         flash('🚫 ليس لديك صلاحية لتعديل هذا الدرس', 'danger')
         return redirect(url_for('teacher_lessons'))
     
     if request.method == 'POST':
-        # تحديث بيانات الدرس
         lesson.title = request.form.get('title', '').strip()
         lesson.description = request.form.get('description', '').strip()
         lesson.level_id = request.form.get('level_id', 1, type=int)
@@ -758,13 +524,6 @@ def edit_lesson(lesson_id):
 @login_required
 @teacher_required
 def delete_lesson(lesson_id):
-    """
-    ========================================================================
-    حذف درس (Delete Lesson)
-    ------------------------------------------------------------------------
-    حذف درس مع جميع فقراته وتمارينه
-    ========================================================================
-    """
     lesson = Lesson.query.get_or_404(lesson_id)
     
     if lesson.teacher_id != current_user.id:
@@ -779,13 +538,6 @@ def delete_lesson(lesson_id):
 @login_required
 @teacher_required
 def create_section(lesson_id):
-    """
-    ========================================================================
-    إنشاء فقرة جديدة (Create New Section)
-    ------------------------------------------------------------------------
-    استمارة لإضافة فقرة جديدة داخل درس
-    ========================================================================
-    """
     lesson = Lesson.query.get_or_404(lesson_id)
     
     if lesson.teacher_id != current_user.id:
@@ -800,7 +552,6 @@ def create_section(lesson_id):
             flash('⚠️ جميع الحقول مطلوبة', 'warning')
             return redirect(url_for('create_section', lesson_id=lesson_id))
         
-        # حساب الترتيب التلقائي
         next_order = len(lesson.sections) + 1
         
         section = Section(
@@ -825,8 +576,6 @@ def edit_section(section_id):
     """
     ========================================================================
     تعديل فقرة (Edit Section)
-    ------------------------------------------------------------------------
-    استمارة لتعديل محتوى الفقرة
     ========================================================================
     """
     section = Section.query.get_or_404(section_id)
@@ -837,123 +586,143 @@ def edit_section(section_id):
         return redirect(url_for('teacher_lessons'))
     
     if request.method == 'POST':
-        section.title = request.form.get('title', '').strip()
-        section.content = request.form.get('content', '').strip()
-        section.order = request.form.get('order', 0, type=int)
+        # التحقق من نوع النموذج
+        form_type = request.form.get('form_type')
         
-        db.session.commit()
-        flash('✅ تم تحديث الفقرة بنجاح', 'success')
+        if form_type == 'new_diagnostic':
+            # هذا من Modal إضافة سؤال جديد
+            return handle_new_diagnostic(section_id)
+        
+        # هذا من النموذج الرئيسي لتعديل الفقرة
+        errors = validate_section_form(request.form)
+        
+        if errors:
+            for error in errors:
+                flash(f'⚠️ {error}', 'warning')
+        else:
+            section.title = request.form.get('title', '').strip()
+            section.content = request.form.get('content', '').strip()
+            section.order = request.form.get('order', 0, type=int)
+            
+            db.session.commit()
+            flash('✅ تم تحديث الفقرة بنجاح', 'success')
+        
         return redirect(url_for('edit_section', section_id=section.id))
     
     return render_template('teacher/edit_section.html', 
                          section=section, 
                          lesson=lesson)
 
-@app.route('/teacher/section/<int:section_id>/diagnostic/new', methods=['GET', 'POST'])
-@login_required
-@teacher_required
-def create_diagnostic(section_id):
-    """إنشاء اختبار تشخيصي مع أنواع متعددة"""
+def handle_new_diagnostic(section_id):
+    """معالجة إضافة سؤال تشخيصي جديد"""
     section = Section.query.get_or_404(section_id)
-    lesson = section.lesson
     
-    if lesson.teacher_id != current_user.id:
-        flash('🚫 ليس لديك صلاحية لإضافة اختبار تشخيصي', 'danger')
-        return redirect(url_for('teacher_lessons'))
+    question_type = request.form.get('question_type', 'single_choice')
+    errors = validate_diagnostic_form(request.form, question_type)
     
-    if request.method == 'POST':
-        question = request.form.get('question', '').strip()
-        question_type = request.form.get('question_type', 'single_choice')
-        explanation = request.form.get('explanation', '').strip()
-        
-        # التحقق من صحة المدخلات
-        if not question:
-            flash('⚠️ سؤال الاختبار مطلوب', 'warning')
-            return redirect(url_for('create_diagnostic', section_id=section_id))
-        
+    if errors:
+        for error in errors:
+            flash(f'⚠️ {error}', 'warning')
+        return redirect(url_for('edit_section', section_id=section_id))
+    
+    try:
         # معالجة حسب نوع السؤال
+        question = request.form.get('question', '').strip()
+        explanation = request.form.get('explanation', '').strip()
+        points = request.form.get('points', 10, type=int)
+        
         if question_type == 'single_choice':
-            # خيار واحد صحيح
-            option1 = request.form.get('option1', '').strip()
-            option2 = request.form.get('option2', '').strip()
-            option3 = request.form.get('option3', '').strip()
-            option4 = request.form.get('option4', '').strip()
+            # جمع الخيارات
+            options = []
+            for i in range(1, 7):  # حتى 6 خيارات
+                option = request.form.get(f'option{i}', '').strip()
+                if option:
+                    options.append(option)
+            
             correct_answer = request.form.get('correct_answer_single', '').strip()
             
-            if not correct_answer:
-                flash('⚠️ يجب اختيار الإجابة الصحيحة', 'warning')
-                return redirect(url_for('create_diagnostic', section_id=section_id))
+            if not correct_answer or correct_answer not in options:
+                flash('⚠️ الإجابة الصحيحة غير صالحة', 'warning')
+                return redirect(url_for('edit_section', section_id=section_id))
             
-            # تحويل الخيارات إلى JSON
-            options = json.dumps([option1, option2, option3, option4])
-            correct_answer_json = correct_answer
+            diagnostic = Diagnostic(
+                question=question,
+                question_type=question_type,
+                options=json.dumps(options),
+                correct_answer=correct_answer,
+                explanation=explanation,
+                points=points,
+                section_id=section_id
+            )
             
         elif question_type == 'multiple_choice':
-            # إجابات متعددة صحيحة
-            num_options = request.form.get('num_options', 4, type=int)
-            options_list = []
+            # جمع الخيارات والإجابات الصحيحة
+            options = []
             correct_answers = []
             
-            for i in range(1, num_options + 1):
+            for i in range(1, 7):
                 option = request.form.get(f'option{i}', '').strip()
-                if option:  # فقط أضف الخيارات غير الفارغة
-                    options_list.append(option)
-                    
+                if option:
+                    options.append(option)
                     # التحقق إذا كان هذا الخيار صحيحاً
-                    is_correct = request.form.get(f'correct_option{i}', 'off') == 'on'
+                    is_correct = request.form.get(f'correct{i}', 'off') == 'on'
                     if is_correct:
                         correct_answers.append(option)
             
             if not correct_answers:
                 flash('⚠️ يجب اختيار إجابة صحيحة واحدة على الأقل', 'warning')
-                return redirect(url_for('create_diagnostic', section_id=section_id))
+                return redirect(url_for('edit_section', section_id=section_id))
             
-            options = json.dumps(options_list)
-            correct_answer_json = json.dumps(correct_answers)
+            diagnostic = Diagnostic(
+                question=question,
+                question_type=question_type,
+                options=json.dumps(options),
+                correct_answer=json.dumps(correct_answers),
+                explanation=explanation,
+                points=points,
+                section_id=section_id
+            )
             
         elif question_type == 'fill_blank':
-            # إملاء الفراغ
             correct_answer = request.form.get('correct_answer_fill', '').strip()
             
-            if not correct_answer:
-                flash('⚠️ الإجابة الصحيحة مطلوبة', 'warning')
-                return redirect(url_for('create_diagnostic', section_id=section_id))
-            
-            options = json.dumps([])  # لا توجد خيارات
-            correct_answer_json = correct_answer
-            
+            diagnostic = Diagnostic(
+                question=question,
+                question_type=question_type,
+                options=json.dumps([]),  # لا توجد خيارات
+                correct_answer=correct_answer,
+                explanation=explanation,
+                points=points,
+                section_id=section_id
+            )
+        
         else:
             flash('❌ نوع السؤال غير صالح', 'danger')
-            return redirect(url_for('create_diagnostic', section_id=section_id))
-        
-        # إنشاء الاختبار التشخيصي
-        diagnostic = Diagnostic(
-            question=question,
-            question_type=question_type,
-            options=options,
-            correct_answer=correct_answer_json,
-            explanation=explanation,
-            section_id=section_id
-        )
+            return redirect(url_for('edit_section', section_id=section_id))
         
         db.session.add(diagnostic)
         db.session.commit()
         
-        flash('✅ تم إنشاء الاختبار التشخيصي بنجاح', 'success')
-        return redirect(url_for('edit_section', section_id=section_id))
+        flash('✅ تم إضافة السؤال التشخيصي بنجاح', 'success')
+        
+    except Exception as e:
+        flash(f'❌ حدث خطأ أثناء حفظ السؤال: {str(e)}', 'danger')
+        db.session.rollback()
     
-    return render_template('teacher/create_diagnostic.html', section=section)
+    return redirect(url_for('edit_section', section_id=section_id))
+
+@app.route('/teacher/section/<int:section_id>/diagnostic/new', methods=['GET', 'POST'])
+@login_required
+@teacher_required
+def create_diagnostic(section_id):
+    """إنشاء اختبار تشخيصي (الطريقة القديمة - تحويل إلى edit_section)"""
+    section = Section.query.get_or_404(section_id)
+    return redirect(url_for('edit_section', section_id=section_id))
+
 @app.route('/teacher/section/<int:section_id>/reminder/new', methods=['GET', 'POST'])
 @login_required
 @teacher_required
 def create_reminder(section_id):
-    """
-    ========================================================================
-    إنشاء تذكير (Create Reminder)
-    ------------------------------------------------------------------------
-    استمارة لإضافة تذكير (متقدم أو أساسي) للفقرة
-    ========================================================================
-    """
     section = Section.query.get_or_404(section_id)
     lesson = section.lesson
     
@@ -989,13 +758,6 @@ def create_reminder(section_id):
 @login_required
 @teacher_required
 def create_exercise(section_id):
-    """
-    ========================================================================
-    إنشاء تمرين (Create Exercise)
-    ------------------------------------------------------------------------
-    استمارة لإضافة تمرين (أساسي، متقدم، أو علاجي)
-    ========================================================================
-    """
     section = Section.query.get_or_404(section_id)
     lesson = section.lesson
     
@@ -1037,14 +799,6 @@ def create_exercise(section_id):
 @login_required
 @teacher_required
 def teacher_statistics():
-    """
-    ========================================================================
-    صفحة الإحصائيات (Statistics Page)
-    ------------------------------------------------------------------------
-    عرض إحصائيات عامة عن النظام وأداء الطلاب
-    ========================================================================
-    """
-    # إحصائيات المعلم
     total_lessons = Lesson.query.filter_by(teacher_id=current_user.id).count()
     published_lessons = Lesson.query.filter_by(teacher_id=current_user.id, 
                                               is_published=True).count()
@@ -1055,12 +809,14 @@ def teacher_statistics():
                          published_lessons=published_lessons,
                          total_students=total_students)
 
-# مسارات حذف العناصر (Delete Routes)
+# =============================================================================
+# مسارات الحذف
+# =============================================================================
+
 @app.route('/teacher/exercise/<int:exercise_id>/delete', methods=['POST'])
 @login_required
 @teacher_required
 def delete_exercise(exercise_id):
-    """حذف تمرين"""
     exercise = Exercise.query.get_or_404(exercise_id)
     section = exercise.section
     
@@ -1076,7 +832,6 @@ def delete_exercise(exercise_id):
 @login_required
 @teacher_required
 def delete_diagnostic(diagnostic_id):
-    """حذف اختبار تشخيصي"""
     diagnostic = Diagnostic.query.get_or_404(diagnostic_id)
     section = diagnostic.section
     
@@ -1092,7 +847,6 @@ def delete_diagnostic(diagnostic_id):
 @login_required
 @teacher_required
 def delete_reminder(reminder_id):
-    """حذف تذكير"""
     reminder = Reminder.query.get_or_404(reminder_id)
     section = reminder.section
     
@@ -1108,7 +862,6 @@ def delete_reminder(reminder_id):
 @login_required
 @teacher_required
 def delete_section(section_id):
-    """حذف فقرة"""
     section = Section.query.get_or_404(section_id)
     lesson = section.lesson
     
@@ -1120,14 +873,14 @@ def delete_section(section_id):
     
     return jsonify({'success': True, 'message': 'تم حذف الفقرة بنجاح'})
 
+# =============================================================================
+# واجهات API
+# =============================================================================
 
-# =============================================================================
-# القسم 9: واجهات API (API Routes)
-# =============================================================================
 @app.route('/api/diagnostic/<int:diagnostic_id>', methods=['POST'])
 @login_required
 def submit_diagnostic(diagnostic_id):
-    """تقديم إجابة الاختبار التشخيصي (جميع الأنواع)"""
+    """تقديم إجابة الاختبار التشخيصي مع حساب النسبة المئوية"""
     diagnostic = Diagnostic.query.get_or_404(diagnostic_id)
     data = request.get_json()
     
@@ -1140,28 +893,25 @@ def submit_diagnostic(diagnostic_id):
     
     # التحقق من الإجابة حسب نوع السؤال
     if diagnostic.question_type == 'single_choice':
-        # إجابة واحدة صحيحة
         is_correct = user_answer == diagnostic.correct_answer
-        score = 10 if is_correct else 0
+        score = diagnostic.points if is_correct else 0
         
     elif diagnostic.question_type == 'multiple_choice':
-        # إجابات متعددة صحيحة
         try:
             correct_answers = json.loads(diagnostic.correct_answer)
             user_answers = user_answer if isinstance(user_answer, list) else [user_answer]
             
-            # التحقق إذا كانت جميع الإجابات الصحيحة مرفوعة
-            is_correct = all(answer in user_answers for answer in correct_answers)
-            score = 10 if is_correct else 0
+            is_correct = set(user_answers) == set(correct_answers)
+            score = diagnostic.points if is_correct else 0
             
         except (json.JSONDecodeError, TypeError):
             is_correct = False
             score = 0
             
     elif diagnostic.question_type == 'fill_blank':
-        # إملاء الفراغ (حساس لحالة الأحرف)
-        is_correct = user_answer.strip() == diagnostic.correct_answer.strip()
-        score = 10 if is_correct else 0
+        correct_answers = [a.strip() for a in diagnostic.correct_answer.split(',')]
+        is_correct = user_answer.strip() in correct_answers
+        score = diagnostic.points if is_correct else 0
     
     # حفظ النتيجة
     result = Result(
@@ -1175,39 +925,46 @@ def submit_diagnostic(diagnostic_id):
     db.session.add(result)
     db.session.commit()
     
-    level = 1 if score >= 10 else 2  # تحديد المستوى
+    # حساب النسبة المئوية لجميع الأسئلة في الفقرة
+    section = diagnostic.section
+    all_results = Result.query.filter_by(
+        student_id=current_user.id,
+        diagnostic_id__in=[d.id for d in section.diagnostics]
+    ).all()
+    
+    total_possible = sum(d.points if d.points else 10 for d in section.diagnostics)
+    total_earned = sum(r.score for r in all_results)
+    percentage = (total_earned / total_possible * 100) if total_possible > 0 else 0
+    
+    # تحديد المستوى بناءً على النسبة المئوية
+    level = 1 if percentage >= 80 else 2
     
     return jsonify({
         'success': True,
         'correct': is_correct,
         'score': score,
+        'percentage': round(percentage, 2),
         'level': level,
         'question_type': diagnostic.question_type,
         'explanation': diagnostic.explanation or '',
-        'correct_answers': diagnostic.get_correct_answers_list()
+        'correct_answers': diagnostic.get_correct_answers_list(),
+        'total_questions': len(section.diagnostics),
+        'total_score': total_earned,
+        'max_score': total_possible
     })
 
 @app.route('/api/exercise/<int:exercise_id>', methods=['POST'])
 @login_required
 def submit_exercise(exercise_id):
-    """
-    ========================================================================
-    تقديم إجابة التمرين (Submit Exercise)
-    ------------------------------------------------------------------------
-    API لتسجيل إجابة الطالب على التمرين
-    ========================================================================
-    """
     exercise = Exercise.query.get_or_404(exercise_id)
     data = request.get_json()
     
     if not data or 'answer' not in data:
         return jsonify({'success': False, 'message': 'بيانات غير صالحة'}), 400
     
-    # التحقق من صحة الإجابة
     is_correct = data['answer'] == exercise.correct_answer
     score = exercise.points if is_correct else 0
     
-    # حفظ النتيجة
     result = Result(
         student_id=current_user.id,
         exercise_id=exercise_id,
@@ -1229,13 +986,6 @@ def submit_exercise(exercise_id):
 @app.route('/api/section/<int:section_id>/reminders/<int:level>')
 @login_required
 def get_reminders(section_id, level):
-    """
-    ========================================================================
-    جلب التذكيرات (Get Reminders)
-    ------------------------------------------------------------------------
-    API لجلب التذكيرات حسب مستوى الطالب
-    ========================================================================
-    """
     reminders = Reminder.query.filter_by(
         section_id=section_id,
         reminder_type=level
@@ -1248,13 +998,6 @@ def get_reminders(section_id, level):
 @app.route('/api/section/<int:section_id>/exercises/<int:level>')
 @login_required
 def get_exercises(section_id, level):
-    """
-    ========================================================================
-    جلب التمارين (Get Exercises)
-    ------------------------------------------------------------------------
-    API لجلب التمارين حسب مستوى الطالب
-    ========================================================================
-    """
     exercises = Exercise.query.filter_by(
         section_id=section_id,
         level=level
@@ -1264,9 +1007,12 @@ def get_exercises(section_id, level):
     
     return jsonify(exercises_data)
 
+# =============================================================================
+# تهيئة قاعدة البيانات
+# =============================================================================
 
 # =============================================================================
-# القسم 10: تهيئة قاعدة البيانات (Database Initialization)
+# تهيئة قاعدة البيانات - نسخة محدثة
 # =============================================================================
 
 def init_database():
@@ -1276,11 +1022,29 @@ def init_database():
     print("=" * 60)
     
     with app.app_context():
-        # 1. إنشاء جميع الجداول
+        # 1. إنشاء جميع الجداول (سيتم إنشاء الأعمدة الجديدة تلقائياً)
         db.create_all()
-        print("✅ تم إنشاء جداول قاعدة البيانات")
+        print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
         
-        # 2. التحقق من وجود المعلم الرئيسي
+        # 2. التحقق من وجود عمود points في جدول diagnostics
+        try:
+            # محاولة استعلام للتأكد من وجود العمود
+            test_diag = Diagnostic.query.first()
+            print("✅ جدول التشخيصات يحتوي على عمود النقاط")
+        except Exception as e:
+            print(f"⚠️ تحذير: {e}")
+            print("🔄 جارٍ تحديث جدول التشخيصات...")
+            
+            # إذا فشل الاستعلام، نحتاج إلى تحديث الجدول يدوياً
+            try:
+                # هذا سيعيد إنشاء الجدول
+                db.drop_all()
+                db.create_all()
+                print("✅ تم إعادة إنشاء جميع الجداول")
+            except Exception as e2:
+                print(f"❌ خطأ في إعادة إنشاء الجداول: {e2}")
+        
+        # 3. التحقق من وجود المعلم الرئيسي
         teacher = User.query.filter_by(email='teacher@example.com').first()
         if not teacher:
             teacher = User(
@@ -1295,10 +1059,9 @@ def init_database():
         else:
             print("📌 المعلم الرئيسي موجود مسبقاً")
         
-        # 3. التحقق من وجود درس تجريبي
+        # 4. التحقق من وجود درس تجريبي
         lesson = Lesson.query.filter_by(title='مقدمة في الرياضيات').first()
         if not lesson:
-            # إنشاء درس تجريبي (يجب حفظه أولاً للحصول على ID)
             lesson = Lesson(
                 title='مقدمة في الرياضيات',
                 description='تعلم أساسيات العمليات الحسابية',
@@ -1308,66 +1071,84 @@ def init_database():
                 is_published=True
             )
             db.session.add(lesson)
-            db.session.commit()  # ⚠️ مهم: حفظ الدرس أولاً للحصول على ID
+            db.session.commit()
             print("✅ تم إنشاء درس تجريبي")
         else:
             print("📌 الدرس التجريبي موجود مسبقاً")
         
-        # 4. التحقق من وجود فقرة تجريبية
+        # 5. التحقق من وجود فقرة تجريبية
         section = Section.query.filter_by(title='الجمع والطرح').first()
         if not section:
-            # تأكد من أن lesson.id موجود (يجب أن يكون موجوداً بعد commit)
             if lesson and lesson.id:
                 section = Section(
                     title='الجمع والطرح',
                     content='<h3>مرحباً بك في درس الرياضيات</h3><p>سنتعلم معاً أساسيات الجمع والطرح.</p>',
-                    lesson_id=lesson.id,  # ⚠️ استخدام lesson.id بعد الحفظ
+                    lesson_id=lesson.id,
                     order=1
                 )
                 db.session.add(section)
+                db.session.commit()
                 print("✅ تم إنشاء فقرة تجريبية")
-            else:
-                print("⚠️ تحذير: لم يتم العثور على معرف الدرس")
+        else:
+            print("📌 الفقرة التجريبية موجودة مسبقاً")
         
-        # 5. التحقق من وجود اختبار تشخيصي تجريبي
-        diagnostic = Diagnostic.query.filter_by(question='ما هو ناتج 5 + 3؟').first()
-        if not diagnostic:
-            # تأكد من أن section.id موجود
-            if section and section.id:
-                import json
+        # 6. التحقق من وجود اختبار تشخيصي تجريبي (بعد التأكد من وجود section)
+        if section and section.id:
+            diagnostic = Diagnostic.query.filter_by(question='ما هو ناتج 5 + 3؟').first()
+            if not diagnostic:
                 diagnostic = Diagnostic(
                     question='ما هو ناتج 5 + 3؟',
                     question_type='single_choice',
                     options=json.dumps(['6', '7', '8', '9']),
                     correct_answer='8',
                     explanation='5 + 3 = 8',
+                    points=10,  # إضافة النقاط
                     section_id=section.id
                 )
                 db.session.add(diagnostic)
                 print("✅ تم إنشاء اختبار تشخيصي تجريبي")
+            else:
+                print("📌 الاختبار التشخيصي التجريبي موجود مسبقاً")
+                
+                # تحديث الاختبار الحالي لإضافة النقاط إذا لم تكن موجودة
+                if not diagnostic.points:
+                    diagnostic.points = 10
+                    db.session.commit()
+                    print("✅ تم تحديث الاختبار التشخيصي بإضافة النقاط")
         
-        # 6. التحقق من وجود تذكيرات تجريبية
-        reminder1 = Reminder.query.filter_by(title='مراجعة سريعة للجمع').first()
-        if not reminder1 and section and section.id:
-            reminder1 = Reminder(
-                reminder_type=1,
-                title='مراجعة سريعة للجمع',
-                content='الجمع هو عملية تجميع كميتين أو أكثر للحصول على كمية أكبر.',
-                section_id=section.id
-            )
-            db.session.add(reminder1)
+        # 7. التحقق من وجود تذكيرات تجريبية
+        if section and section.id:
+            reminder1 = Reminder.query.filter_by(
+                section_id=section.id, 
+                reminder_type=1
+            ).first()
+            
+            if not reminder1:
+                reminder1 = Reminder(
+                    reminder_type=1,
+                    title='مراجعة سريعة للجمع',
+                    content='الجمع هو عملية تجميع كميتين أو أكثر للحصول على كمية أكبر.',
+                    section_id=section.id
+                )
+                db.session.add(reminder1)
+                print("✅ تم إنشاء تذكير مستوى متقدم")
+            
+            reminder2 = Reminder.query.filter_by(
+                section_id=section.id, 
+                reminder_type=2
+            ).first()
+            
+            if not reminder2:
+                reminder2 = Reminder(
+                    reminder_type=2,
+                    title='شرح مفصل للجمع',
+                    content='لتعلم الجمع: ابدأ بالعدد الأول، ثم أضف العدد الثاني عداً.',
+                    section_id=section.id
+                )
+                db.session.add(reminder2)
+                print("✅ تم إنشاء تذكير مستوى أساسي")
         
-        reminder2 = Reminder.query.filter_by(title='شرح مفصل للجمع').first()
-        if not reminder2 and section and section.id:
-            reminder2 = Reminder(
-                reminder_type=2,
-                title='شرح مفصل للجمع',
-                content='لتعلم الجمع: ابدأ بالعدد الأول، ثم أضف العدد الثاني عداً.',
-                section_id=section.id
-            )
-            db.session.add(reminder2)
-        
-        # 7. التحقق من وجود تمارين تجريبية
+        # 8. التحقق من وجود تمارين تجريبية
         if section and section.id:
             exercises_count = Exercise.query.filter_by(section_id=section.id).count()
             if exercises_count == 0:
@@ -1378,7 +1159,8 @@ def init_database():
                         level=0,
                         section_id=section.id,
                         correct_answer='6',
-                        explanation='4 + 2 = 6'
+                        explanation='4 + 2 = 6',
+                        points=10
                     ),
                     Exercise(
                         title='تمرين متقدم',
@@ -1386,7 +1168,8 @@ def init_database():
                         level=1,
                         section_id=section.id,
                         correct_answer='27',
-                        explanation='12 + 15 = 27'
+                        explanation='12 + 15 = 27',
+                        points=10
                     ),
                     Exercise(
                         title='تمرين علاجي',
@@ -1394,7 +1177,8 @@ def init_database():
                         level=2,
                         section_id=section.id,
                         correct_answer='2',
-                        explanation='1 + 1 = 2'
+                        explanation='1 + 1 = 2',
+                        points=10
                     )
                 ]
                 
@@ -1403,7 +1187,6 @@ def init_database():
                 
                 print("✅ تم إنشاء تمارين تجريبية")
         
-        # 8. حفظ جميع التغييرات في النهاية
         try:
             db.session.commit()
             print("✅ تم حفظ جميع البيانات في قاعدة البيانات")
@@ -1422,20 +1205,16 @@ def init_database():
         print(f"   📝 التمارين: {Exercise.query.count()}")
         
         print("\n🎉 قاعدة البيانات جاهزة للاستخدام!")
-
-
 # =============================================================================
-# القسم 11: نقطة الدخول الرئيسية (Main Entry Point)
+# نقطة الدخول الرئيسية
 # =============================================================================
 
 if __name__ == '__main__':
-    """
-    ========================================================================
-    نقطة الدخول الرئيسية للتطبيق
-    ------------------------------------------------------------------------
-    تهيئة قاعدة البيانات وتشغيل خادم التطوير
-    ========================================================================
-    """
+    # إنشاء مجلد التحميلات إذا لم يكن موجوداً
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+        print(f"📁 تم إنشاء مجلد التحميلات: {app.config['UPLOAD_FOLDER']}")
+    
     # تهيئة قاعدة البيانات
     init_database()
     
@@ -1454,24 +1233,18 @@ if __name__ == '__main__':
     print("\n💡 نصائح:")
     print("   1. اضغط Ctrl+C لإيقاف الخادم")
     print("   2. افتح المتصفح واذهب إلى http://localhost:5000")
-    print("   3. للوصول من أجهزة أخرى: python app.py --host=0.0.0.0")
     
     print("\n" + "=" * 70)
     
     # تشغيل التطبيق
     try:
         app.run(
-            debug=True,           # وضع التصحيح (غير مناسب للإنتاج)
-            host='0.0.0.0',      # الاستماع على جميع الواجهات
-            port=5000,           # المنفذ الافتراضي
-            threaded=True        # معالجة متعددة الخيوط
+            debug=True,
+            host='0.0.0.0',
+            port=5000,
+            threaded=True
         )
     except KeyboardInterrupt:
         print("\n\n👋 تم إيقاف الخادم بواسطة المستخدم")
     except Exception as e:
         print(f"\n\n❌ خطأ غير متوقع: {e}")
-        print("🔧 حاول تشغيل: python -m flask run")
-    
-# =============================================================================
-# نهاية ملف app.py
-# =============================================================================

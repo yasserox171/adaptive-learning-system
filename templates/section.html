@@ -82,6 +82,62 @@
                     </div>
                 </div>
                 
+                <!-- ملف: templates/section.html -->
+                <!-- أضف هذا الكود في قسم عرض النتائج -->
+
+                <div id="resultsSection" style="display: none;">
+                    <div class="card mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-graph-up"></i> نتائج التشخيص</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <div class="progress" style="height: 30px;">
+                                    <div id="percentageBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                        role="progressbar" style="width: 0%">
+                                        0%
+                                    </div>
+                                </div>
+                                <h4 id="percentageText" class="mt-3">0%</h4>
+                            </div>
+                            
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>الإجابات الصحيحة</h6>
+                                            <h3 id="correctAnswers">0</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>النقاط المكتسبة</h6>
+                                            <h3 id="earnedPoints">0</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>المستوى المحدد</h6>
+                                            <h3 id="studentLevel">-</h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="explanationSection" class="mt-4" style="display: none;">
+                                <h6>شرح الإجابات:</h6>
+                                <div id="answersExplanation"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
                 <!-- Stage 2: Reminders (initially hidden) -->
                 <div id="stage-reminders" class="stage" style="display: none;">
                     <h4 class="mb-3">📌 المرحلة 2: التذكيرات</h4>
@@ -365,6 +421,46 @@
             stage.style.display = 'none';
         });
         document.getElementById(stageId).style.display = 'block';
+    }
+
+    // في ملف templates/section.html
+    function showResults(result) {
+        // إظهار قسم النتائج
+        document.getElementById('resultsSection').style.display = 'block';
+        
+        // تحديث النسبة المئوية
+        const percentage = result.percentage || 0;
+        const percentageBar = document.getElementById('percentageBar');
+        const percentageText = document.getElementById('percentageText');
+        
+        percentageBar.style.width = percentage + '%';
+        percentageBar.textContent = percentage + '%';
+        percentageText.textContent = percentage + '%';
+        
+        // تحديث النقاط
+        document.getElementById('correctAnswers').textContent = 
+            result.total_score / 10 + ' / ' + result.total_questions;
+        document.getElementById('earnedPoints').textContent = result.total_score;
+        
+        // تحديث المستوى
+        const levelText = result.level === 1 ? 'المستوى المتقدم' : 'المستوى الأساسي';
+        document.getElementById('studentLevel').textContent = levelText;
+        
+        // إضافة فئة اللون حسب النسبة
+        if (percentage >= 80) {
+            percentageBar.className = 'progress-bar bg-success progress-bar-striped progress-bar-animated';
+        } else if (percentage >= 50) {
+            percentageBar.className = 'progress-bar bg-warning progress-bar-striped progress-bar-animated';
+        } else {
+            percentageBar.className = 'progress-bar bg-danger progress-bar-striped progress-bar-animated';
+        }
+        
+        // إظهار الشرح إذا وجد
+        if (result.explanation) {
+            document.getElementById('explanationSection').style.display = 'block';
+            document.getElementById('answersExplanation').innerHTML = 
+                `<div class="alert alert-info">${result.explanation}</div>`;
+        }
     }
 </script>
 {% endblock %}

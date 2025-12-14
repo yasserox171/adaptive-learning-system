@@ -1,6 +1,35 @@
+<!-- ملف: templates/teacher/create_diagnostic.html -->
 {% extends "base.html" %}
 
 {% block title %}إنشاء اختبار تشخيصي متقدم{% endblock %}
+
+{% block extra_css %}
+<style>
+.math-editor {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+.math-preview {
+    background-color: white;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    min-height: 50px;
+    margin-top: 10px;
+}
+.image-preview {
+    max-width: 100%;
+    max-height: 200px;
+    margin-top: 10px;
+}
+.math-symbols button {
+    margin: 2px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -20,96 +49,100 @@
                 <h4 class="mb-0"><i class="bi bi-clipboard-check"></i> اختبار تشخيصي متقدم</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('create_diagnostic', section_id=section.id) }}" id="diagnosticForm">
+                <form method="POST" action="{{ url_for('create_diagnostic', section_id=section.id) }}" 
+                      id="diagnosticForm" enctype="multipart/form-data">
                     
                     <!-- نوع السؤال -->
                     <div class="mb-4">
                         <label for="question_type" class="form-label fw-bold">نوع السؤال</label>
-                        <select class="form-select" id="question_type" name="question_type" required onchange="showQuestionTypeFields()">
-                            <option value="single_choice">اختيار من متعدد (إجابة واحدة)</option>
-                            <option value="multiple_choice">اختيار من متعدد (إجابات متعددة)</option>
-                            <option value="fill_blank">إملاء الفراغ</option>
-                        </select>
-                        <div class="form-text">اختر نوع السؤال المناسب</div>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="question_type" 
+                                   id="type_single" value="single_choice" checked>
+                            <label class="btn btn-outline-primary" for="type_single">
+                                <i class="bi bi-1-circle"></i> إجابة واحدة
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="question_type" 
+                                   id="type_multiple" value="multiple_choice">
+                            <label class="btn btn-outline-warning" for="type_multiple">
+                                <i class="bi bi-123"></i> إجابات متعددة
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="question_type" 
+                                   id="type_fill" value="fill_blank">
+                            <label class="btn btn-outline-success" for="type_fill">
+                                <i class="bi bi-pencil"></i> إملاء الفراغ
+                            </label>
+                        </div>
                     </div>
                     
-                    <!-- نص السؤال -->
+                    <!-- نص السؤال مع المحرر المتقدم -->
                     <div class="mb-3">
                         <label for="question" class="form-label fw-bold">نص السؤال</label>
-                        <textarea class="form-control" id="question" name="question" rows="3" required 
+                        <textarea class="form-control" id="question" name="question" rows="4" required 
                                   placeholder="أدخل نص السؤال هنا..."></textarea>
-                        <div class="form-text">اكتب السؤال بوضوح</div>
+                        
+                        <!-- أزرار التنسيق -->
+                        <div class="mt-2">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')">
+                                    <i class="bi bi-type-bold"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')">
+                                    <i class="bi bi-type-italic"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')">
+                                    <i class="bi bi-type-underline"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="btn-group ms-2" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="insertMath()">
+                                    <i class="bi bi-calculator"></i> معادلة رياضية
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('imageInput').click()">
+                                    <i class="bi bi-image"></i> صورة
+                                </button>
+                                <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="uploadImage()">
+                            </div>
+                        </div>
+                        
+                        <!-- معاينة الصورة -->
+                        <div id="imagePreviewContainer" class="mt-2" style="display:none;">
+                            <img id="imagePreview" class="image-preview">
+                            <button type="button" class="btn btn-sm btn-danger mt-1" onclick="removeImage()">
+                                <i class="bi bi-trash"></i> إزالة الصورة
+                            </button>
+                        </div>
                     </div>
                     
-                    <!-- قسم الاختيار من متعدد (إجابة واحدة) -->
-                    <div id="single_choice_section" class="question-type-section">
-                        <h5 class="mb-3">خيارات الإجابة (اختيار واحد)</h5>
-                        
-                        <!-- عدد الخيارات -->
-                        <div class="mb-3">
-                            <label for="num_options_single" class="form-label">عدد الخيارات</label>
-                            <select class="form-select" id="num_options_single" onchange="generateOptions('single', this.value)">
-                                <option value="2">2 خيارات</option>
-                                <option value="3">3 خيارات</option>
-                                <option value="4" selected>4 خيارات</option>
-                                <option value="5">5 خيارات</option>
-                                <option value="6">6 خيارات</option>
-                            </select>
+                    <!-- قسم خيارات الإجابة -->
+                    <div id="optionsSection" class="mb-4">
+                        <h5 class="mb-3">خيارات الإجابة</h5>
+                        <div id="optionsContainer" class="mb-3">
+                            <!-- سيتم إضافة الخيارات هنا ديناميكياً -->
                         </div>
-                        
-                        <!-- حاويات الخيارات -->
-                        <div id="single_options_container">
-                            <!-- سيتم توليد الخيارات هنا ديناميكياً -->
-                        </div>
-                        
-                        <!-- الإجابة الصحيحة -->
-                        <div class="mb-3">
-                            <label for="correct_answer_single" class="form-label">الإجابة الصحيحة</label>
-                            <select class="form-select" id="correct_answer_single" name="correct_answer_single" required>
-                                <!-- سيتم ملؤه ديناميكياً -->
-                            </select>
-                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addOption()">
+                            <i class="bi bi-plus-circle"></i> إضافة خيار
+                        </button>
                     </div>
                     
-                    <!-- قسم الاختيار من متعدد (إجابات متعددة) -->
-                    <div id="multiple_choice_section" class="question-type-section" style="display: none;">
-                        <h5 class="mb-3">خيارات الإجابة (اختيارات متعددة)</h5>
-                        
-                        <!-- عدد الخيارات -->
-                        <div class="mb-3">
-                            <label for="num_options_multiple" class="form-label">عدد الخيارات</label>
-                            <select class="form-select" id="num_options_multiple" onchange="generateOptions('multiple', this.value)">
-                                <option value="2">2 خيارات</option>
-                                <option value="3">3 خيارات</option>
-                                <option value="4" selected>4 خيارات</option>
-                                <option value="5">5 خيارات</option>
-                                <option value="6">6 خيارات</option>
-                            </select>
-                        </div>
-                        
-                        <!-- حاويات الخيارات -->
-                        <div id="multiple_options_container">
-                            <!-- سيتم توليد الخيارات هنا ديناميكياً -->
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> اختر الخيارات الصحيحة بوضع علامة ✓
+                    <!-- قسم الإجابة الصحيحة -->
+                    <div id="correctAnswerSection" class="mb-4">
+                        <h5 class="mb-3">الإجابة الصحيحة</h5>
+                        <div id="correctAnswerContainer">
+                            <!-- سيتم تحديثه ديناميكياً -->
                         </div>
                     </div>
                     
                     <!-- قسم إملاء الفراغ -->
-                    <div id="fill_blank_section" class="question-type-section" style="display: none;">
+                    <div id="fillBlankSection" class="mb-4" style="display:none;">
                         <h5 class="mb-3">إملاء الفراغ</h5>
-                        
                         <div class="mb-3">
                             <label for="correct_answer_fill" class="form-label">الإجابة الصحيحة</label>
                             <input type="text" class="form-control" id="correct_answer_fill" name="correct_answer_fill" 
                                    placeholder="أدخل الإجابة الصحيحة...">
-                            <div class="form-text">اكتب الإجابة الصحيحة التي يجب أن يدخلها الطالب</div>
-                        </div>
-                        
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> سيتم مقارنة إجابة الطالب مع هذه الإجابة (حساسة لحالة الأحرف)
+                            <div class="form-text">يمكن إدخال عدة إجابات صحيحة مفصولة بفاصلة (مثال: 8, ثمانية, eight)</div>
                         </div>
                     </div>
                     
@@ -118,16 +151,26 @@
                         <label for="explanation" class="form-label fw-bold">شرح الإجابة</label>
                         <textarea class="form-control" id="explanation" name="explanation" rows="3" 
                                   placeholder="شرح طريقة حل السؤال..."></textarea>
-                        <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته على السؤال</div>
+                        <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته مع النسبة المئوية</div>
+                    </div>
+                    
+                    <!-- النقاط -->
+                    <div class="mb-4">
+                        <label for="points" class="form-label">النقاط</label>
+                        <input type="number" class="form-control" id="points" name="points" 
+                               value="10" min="1" max="100">
+                        <div class="form-text">عدد النقاط لهذا السؤال (10 نقاط = 100%)</div>
                     </div>
                     
                     <!-- التنبيهات -->
                     <div class="alert alert-info">
-                        <h6><i class="bi bi-lightbulb"></i> تذكر:</h6>
-                        <p class="mb-0">
-                            <strong>N ≥ 10</strong> → المستوى 1 (متقدم)<br>
-                            <strong>N < 10</strong> → المستوى 2 (أساسي)
-                        </p>
+                        <h6><i class="bi bi-lightbulb"></i> نظام التقييم:</h6>
+                        <ul class="mb-0">
+                            <li>كل سؤال له نقاط خاصة به</li>
+                            <li>سيحصل الطالب على النسبة المئوية بناءً على إجمالي النقاط</li>
+                            <li><strong>N ≥ 80%</strong> → المستوى 1 (متقدم)</li>
+                            <li><strong>N < 80%</strong> → المستوى 2 (أساسي)</li>
+                        </ul>
                     </div>
                     
                     <!-- أزرار الإجراء -->
@@ -145,125 +188,337 @@
     </div>
 </div>
 
-<style>
-.question-type-section {
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px solid #dee2e6;
-}
+<!-- Modal للمعادلات الرياضية -->
+<div class="modal fade" id="mathModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">إدراج معادلة رياضية</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">اكتب معادلة LaTeX:</label>
+                    <input type="text" class="form-control" id="latexInput" placeholder="مثال: x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">معاينة:</label>
+                    <div id="mathPreview" class="border p-3 text-center"></div>
+                </div>
+                <div class="math-symbols mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('\\frac{}{}')">كسر</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('\\sqrt{}')">جذر</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('^')">أس</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('_')">سفلية</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('\\pi')">π</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('\\alpha')">α</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSymbol('\\beta')">β</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="insertMathEquation()">إدراج</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-.option-item {
-    background-color: white;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 6px;
-    border: 1px solid #ced4da;
-}
-
-.option-item:hover {
-    background-color: #f8f9fa;
-}
-
-.correct-checkbox {
-    transform: scale(1.2);
-}
-</style>
 
 <script>
-// توليد الخيارات ديناميكياً
-function generateOptions(type, count) {
-    const containerId = type === 'single' ? 'single_options_container' : 'multiple_options_container';
-    const container = document.getElementById(containerId);
-    const selectElement = document.getElementById(`correct_answer_${type}`);
-    
-    container.innerHTML = '';
-    if (selectElement) selectElement.innerHTML = '';
-    
-    for (let i = 1; i <= parseInt(count); i++) {
-        if (type === 'single') {
-            // خيارات الإجابة الواحدة
-            container.innerHTML += `
-                <div class="option-item">
-                    <div class="input-group">
-                        <span class="input-group-text">${i}</span>
-                        <input type="text" class="form-control" 
-                               id="option${i}" name="option${i}" 
-                               placeholder="أدخل الخيار ${i}..." required>
-                    </div>
-                </div>
-            `;
-            
-            // إضافة إلى قائمة الإجابات الصحيحة
-            selectElement.innerHTML += `<option value="option${i}">الخيار ${i}</option>`;
-            
-        } else if (type === 'multiple') {
-            // خيارات الإجابات المتعددة
-            container.innerHTML += `
-                <div class="option-item d-flex align-items-center">
-                    <div class="form-check me-3">
-                        <input class="form-check-input correct-checkbox" type="checkbox" 
-                               id="correct_option${i}" name="correct_option${i}">
-                        <label class="form-check-label fw-bold" for="correct_option${i}">
-                            ✓
-                        </label>
-                    </div>
-                    <div class="flex-grow-1">
-                        <input type="text" class="form-control" 
-                               id="option${i}" name="option${i}" 
-                               placeholder="أدخل الخيار ${i}..." required>
-                    </div>
-                </div>
-            `;
-        }
-    }
-}
+// تهيئة الصفحة
+let optionCounter = 2;
+let uploadedImages = {};
 
 // إظهار/إخفاء الحقول حسب نوع السؤال
 function showQuestionTypeFields() {
-    const questionType = document.getElementById('question_type').value;
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
     
     // إخفاء جميع الأقسام
-    document.querySelectorAll('.question-type-section').forEach(section => {
-        section.style.display = 'none';
-    });
-    
-    // إظهار القسم المطلوب
-    document.getElementById(`${questionType}_section`).style.display = 'block';
+    document.getElementById('optionsSection').style.display = questionType === 'fill_blank' ? 'none' : 'block';
+    document.getElementById('fillBlankSection').style.display = questionType === 'fill_blank' ? 'block' : 'none';
     
     // توليد الخيارات الافتراضية
-    if (questionType === 'single_choice') {
-        generateOptions('single', 4);
-    } else if (questionType === 'multiple_choice') {
-        generateOptions('multiple', 4);
+    if (questionType !== 'fill_blank') {
+        generateOptions();
+    }
+    
+    // تحديث قسم الإجابة الصحيحة
+    updateCorrectAnswerSection();
+}
+
+// توليد الخيارات
+function generateOptions() {
+    const container = document.getElementById('optionsContainer');
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    
+    container.innerHTML = '';
+    optionCounter = 2;
+    
+    // خياران افتراضيان
+    for (let i = 1; i <= 2; i++) {
+        addOptionElement(i);
     }
 }
 
-// التحقق من صحة النموذج قبل الإرسال
-document.getElementById('diagnosticForm').addEventListener('submit', function(e) {
-    const questionType = document.getElementById('question_type').value;
+// إضافة خيار جديد
+function addOption() {
+    optionCounter++;
+    addOptionElement(optionCounter);
+}
+
+function addOptionElement(index) {
+    const container = document.getElementById('optionsContainer');
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'option-item mb-2 p-2 border rounded';
+    optionDiv.id = `option_${index}`;
+    
+    let html = `
+        <div class="d-flex align-items-center">
+            <span class="me-2">${String.fromCharCode(64 + index)}.</span>
+            <input type="text" class="form-control form-control-sm" 
+                   name="option${index}" 
+                   placeholder="أدخل الخيار ${String.fromCharCode(64 + index)}..."
+                   onchange="updateCorrectAnswerOptions()">
+    `;
     
     if (questionType === 'multiple_choice') {
-        // التحقق من وجود إجابة صحيحة واحدة على الأقل
-        const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="correct_option"]:checked');
-        if (checkboxes.length === 0) {
-            e.preventDefault();
-            alert('⚠️ يجب اختيار إجابة صحيحة واحدة على الأقل');
-            return false;
-        }
+        html += `
+            <div class="form-check ms-3">
+                <input class="form-check-input" type="checkbox" 
+                       id="correct${index}" name="correct${index}"
+                       onchange="updateCorrectAnswerOptions()">
+                <label class="form-check-label" for="correct${index}">صحيح</label>
+            </div>
+        `;
     }
     
-    return true;
+    html += `
+            <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                    onclick="removeOption(${index})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    optionDiv.innerHTML = html;
+    container.appendChild(optionDiv);
+}
+
+// إزالة خيار
+function removeOption(index) {
+    const optionDiv = document.getElementById(`option_${index}`);
+    if (optionDiv) {
+        optionDiv.remove();
+        updateCorrectAnswerOptions();
+    }
+}
+
+// تحديث قسم الإجابة الصحيحة
+function updateCorrectAnswerSection() {
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    const container = document.getElementById('correctAnswerContainer');
+    
+    container.innerHTML = '';
+    
+    if (questionType === 'single_choice') {
+        container.innerHTML = `
+            <select class="form-select" id="correct_answer_single" name="correct_answer_single" required>
+                <option value="">اختر الإجابة الصحيحة...</option>
+            </select>
+            <div class="form-text">اختر الخيار الصحيح من القائمة</div>
+        `;
+        updateCorrectAnswerOptions();
+    } else if (questionType === 'multiple_choice') {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> اختر الخيارات الصحيحة بوضع علامة ✓ بجانب كل خيار
+            </div>
+        `;
+    } else if (questionType === 'fill_blank') {
+        container.innerHTML = `
+            <input type="text" class="form-control" id="correct_answer_fill" name="correct_answer_fill" 
+                   placeholder="أدخل الإجابة الصحيحة (يمكن إدخال عدة إجابات مفصولة بفاصلة)...">
+        `;
+    }
+}
+
+// تحديث خيارات الإجابة الصحيحة
+function updateCorrectAnswerOptions() {
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    
+    if (questionType === 'single_choice') {
+        const select = document.getElementById('correct_answer_single');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">اختر الإجابة الصحيحة...</option>';
+        
+        for (let i = 1; i <= optionCounter; i++) {
+            const optionInput = document.querySelector(`input[name="option${i}"]`);
+            if (optionInput && optionInput.value.trim()) {
+                const option = document.createElement('option');
+                option.value = optionInput.value;
+                option.textContent = optionInput.value;
+                select.appendChild(option);
+            }
+        }
+    }
+}
+
+// تنسيق النص
+function formatText(command) {
+    const textarea = document.getElementById('question');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    
+    let formattedText = selectedText;
+    switch(command) {
+        case 'bold':
+            formattedText = `<strong>${selectedText}</strong>`;
+            break;
+        case 'italic':
+            formattedText = `<em>${selectedText}</em>`;
+            break;
+        case 'underline':
+            formattedText = `<u>${selectedText}</u>`;
+            break;
+    }
+    
+    textarea.value = textarea.value.substring(0, start) + 
+                     formattedText + 
+                     textarea.value.substring(end);
+    textarea.focus();
+}
+
+// إدراج معادلة رياضية
+function insertMath() {
+    const mathModal = new bootstrap.Modal(document.getElementById('mathModal'));
+    mathModal.show();
+}
+
+function insertSymbol(symbol) {
+    const input = document.getElementById('latexInput');
+    const cursorPos = input.selectionStart;
+    const currentValue = input.value;
+    
+    input.value = currentValue.substring(0, cursorPos) + 
+                  symbol + 
+                  currentValue.substring(cursorPos);
+    updateMathPreview();
+}
+
+function updateMathPreview() {
+    const latex = document.getElementById('latexInput').value;
+    const preview = document.getElementById('mathPreview');
+    
+    if (latex.trim()) {
+        preview.innerHTML = `\\(${latex}\\)`;
+        if (typeof MathJax !== 'undefined') {
+            MathJax.typesetPromise([preview]);
+        }
+    } else {
+        preview.innerHTML = 'سيظهر معاينة المعادلة هنا...';
+    }
+}
+
+function insertMathEquation() {
+    const latex = document.getElementById('latexInput').value.trim();
+    if (!latex) return;
+    
+    const textarea = document.getElementById('question');
+    const cursorPos = textarea.selectionStart;
+    const currentValue = textarea.value;
+    
+    const equation = `\\(${latex}\\)`;
+    textarea.value = currentValue.substring(0, cursorPos) + 
+                     equation + 
+                     currentValue.substring(cursorPos);
+    
+    const mathModal = bootstrap.Modal.getInstance(document.getElementById('mathModal'));
+    mathModal.hide();
+    
+    document.getElementById('latexInput').value = '';
+    updateMathPreview();
+}
+
+// رفع الصورة
+function uploadImage() {
+    const input = document.getElementById('imageInput');
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    if (!file.type.match('image.*')) {
+        alert('⚠️ الرجاء اختيار ملف صورة فقط');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+        alert('⚠️ حجم الصورة كبير جداً. الحد الأقصى 5MB');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64Image = e.target.result;
+        
+        // حفظ الصورة في الذاكرة مؤقتاً
+        uploadedImages[file.name] = base64Image;
+        
+        // عرض المعاينة
+        const preview = document.getElementById('imagePreview');
+        preview.src = base64Image;
+        document.getElementById('imagePreviewContainer').style.display = 'block';
+        
+        // إدراج الصورة في النص
+        const textarea = document.getElementById('question');
+        const cursorPos = textarea.selectionStart;
+        const currentValue = textarea.value;
+        
+        const imageTag = `<img src="${base64Image}" alt="صورة توضيحية" style="max-width: 300px; max-height: 200px; margin: 10px 0;">`;
+        textarea.value = currentValue.substring(0, cursorPos) + 
+                        imageTag + 
+                        currentValue.substring(cursorPos);
+    };
+    
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+// إزالة الصورة
+function removeImage() {
+    document.getElementById('imagePreviewContainer').style.display = 'none';
+    document.getElementById('imagePreview').src = '';
+}
+
+// تحويل الصور إلى base64 قبل الإرسال
+document.getElementById('diagnosticForm').addEventListener('submit', function(e) {
+    // تحويل الصور في النص إلى base64
+    const textarea = document.getElementById('question');
+    let questionText = textarea.value;
+    
+    // البحث عن صور data-url واستبدالها بروابط دائمة (في تطبيق حقيقي)
+    const imgRegex = /<img[^>]+src="([^">]+)"/g;
+    const matches = [...questionText.matchAll(imgRegex)];
+    
+    if (matches.length > 0) {
+        alert('⚠️ ملاحظة: في تطبيق حقيقي، سيتم حفظ الصور على الخادم');
+    }
 });
 
-// تهيئة الصفحة
+// استمع لتغير نوع السؤال
+document.querySelectorAll('input[name="question_type"]').forEach(radio => {
+    radio.addEventListener('change', showQuestionTypeFields);
+});
+
+// تهيئة الصفحة عند التحميل
 document.addEventListener('DOMContentLoaded', function() {
-    // توليد الخيارات الافتراضية
-    generateOptions('single', 4);
-    
-    // إظهار النوع الافتراضي
+    generateOptions();
     showQuestionTypeFields();
+    
+    // تحديث معاينة الرياضيات باستمرار
+    document.getElementById('latexInput').addEventListener('input', updateMathPreview);
 });
 </script>
-{% endblock %}

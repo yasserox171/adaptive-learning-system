@@ -32,6 +32,8 @@
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('edit_section', section_id=section.id) }}">
+                        <input type="hidden" name="form_type" value="edit_section">
+                        
                         <div class="mb-3">
                             <label for="title" class="form-label">عنوان الفقرة</label>
                             <input type="text" class="form-control" id="title" name="title" 
@@ -64,33 +66,81 @@
             <div class="card mb-4">
                 <div class="card-header bg-warning">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">المرحلة 1: التشخيص</h6>
-                        <span class="badge bg-light text-dark">{{ section.diagnostics|length }}</span>
+                        <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> المرحلة 1: التشخيص</h6>
+                        <div>
+                            <span class="badge bg-light text-dark me-2">{{ section.diagnostics|length }} سؤال</span>
+                            <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#diagnosticModal">
+                                <i class="bi bi-gear"></i> إدارة
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
                     {% if section.diagnostics %}
-                    <div class="list-group mb-3">
-                        {% for diagnostic in section.diagnostics %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <p class="mb-1 small">{{ diagnostic.question[:50] }}...</p>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger delete-diagnostic" 
-                                        data-diagnostic-id="{{ diagnostic.id }}">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle"></i> معلومات التشخيص</h6>
+                        <p class="mb-2">يحتوي هذا التشخيص على {{ section.diagnostics|length }} أسئلة</p>
+                        <p class="mb-0"><strong>النقاط الإجمالية:</strong> {{ section.diagnostics|length * 10 }}</p>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>السؤال</th>
+                                    <th>النوع</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for diagnostic in section.diagnostics %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <div class="question-preview">
+                                            {{ diagnostic.question|striptags|truncate(40) }}
+                                            {% if '<img' in diagnostic.question %}
+                                            <span class="badge bg-success bg-opacity-25 ms-1"><i class="bi bi-image"></i></span>
+                                            {% endif %}
+                                            {% if '\\(' in diagnostic.question or '\\[' in diagnostic.question %}
+                                            <span class="badge bg-primary bg-opacity-25 ms-1"><i class="bi bi-calculator"></i></span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if diagnostic.question_type == 'single_choice' %}
+                                        <span class="badge bg-info">إجابة واحدة</span>
+                                        {% elif diagnostic.question_type == 'multiple_choice' %}
+                                        <span class="badge bg-warning">إجابات متعددة</span>
+                                        {% elif diagnostic.question_type == 'fill_blank' %}
+                                        <span class="badge bg-success">إملاء الفراغ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger delete-diagnostic" 
+                                                data-diagnostic-id="{{ diagnostic.id }}"
+                                                title="حذف">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                     {% else %}
-                    <p class="text-muted small mb-3">لم يتم إضافة اختبار تشخيصي بعد</p>
+                    <div class="text-center py-4">
+                        <i class="bi bi-clipboard-x display-4 text-muted"></i>
+                        <p class="text-muted mt-3">لم يتم إضافة اختبار تشخيصي بعد</p>
+                    </div>
                     {% endif %}
-                    <a href="{{ url_for('create_diagnostic', section_id=section.id) }}" class="btn btn-warning btn-sm w-100">
-                        <i class="bi bi-plus-circle"></i> {{ 'إضافة اختبار' if not section.diagnostics else 'تعديل الاختبار' }}
-                    </a>
+                    
+                    <div class="text-center mt-3">
+                        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#diagnosticModal">
+                            <i class="bi bi-plus-circle"></i> {{ 'إضافة اختبار' if not section.diagnostics else 'إدارة الأسئلة' }}
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -98,7 +148,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-info text-white">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">المرحلة 2: التذكيرات</h6>
+                        <h6 class="mb-0"><i class="bi bi-lightbulb"></i> المرحلة 2: التذكيرات</h6>
                         <span class="badge bg-light text-dark">{{ section.reminders|length }}</span>
                     </div>
                 </div>
@@ -115,7 +165,7 @@
                             {% endif %}
                         </div>
                         {% if reminder1 %}
-                        <p class="small mb-0">{{ reminder1[0].title }}</p>
+                        <p class="small mb-0">{{ reminder1[0].title or 'بدون عنوان' }}</p>
                         {% else %}
                         <span class="badge bg-secondary">غير مضاف</span>
                         {% endif %}
@@ -133,7 +183,7 @@
                             {% endif %}
                         </div>
                         {% if reminder2 %}
-                        <p class="small mb-0">{{ reminder2[0].title }}</p>
+                        <p class="small mb-0">{{ reminder2[0].title or 'بدون عنوان' }}</p>
                         {% else %}
                         <span class="badge bg-secondary">غير مضاف</span>
                         {% endif %}
@@ -156,7 +206,7 @@
             <div class="card">
                 <div class="card-header bg-success text-white">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">المرحلتان 4 و 5: التمارين</h6>
+                        <h6 class="mb-0"><i class="bi bi-journal-text"></i> المرحلتان 4 و 5: التمارين</h6>
                         <span class="badge bg-light text-dark">{{ section.exercises|length }}</span>
                     </div>
                 </div>
@@ -173,7 +223,7 @@
                         {% if main_exercises %}
                         {% for ex in main_exercises %}
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <p class="small mb-0">{{ ex.title[:30] }}{% if ex.title|length > 30 %}...{% endif %}</p>
                             <button class="btn btn-sm btn-outline-danger delete-exercise" 
                                     data-exercise-id="{{ ex.id }}">
                                 <i class="bi bi-trash"></i>
@@ -193,7 +243,7 @@
                         {% if advanced_exercises %}
                         {% for ex in advanced_exercises %}
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <p class="small mb-0">{{ ex.title[:30] }}{% if ex.title|length > 30 %}...{% endif %}</p>
                             <button class="btn btn-sm btn-outline-danger delete-exercise" 
                                     data-exercise-id="{{ ex.id }}">
                                 <i class="bi bi-trash"></i>
@@ -213,7 +263,7 @@
                         {% if basic_exercises %}
                         {% for ex in basic_exercises %}
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <p class="small mb-0">{{ ex.title[:30] }}...</p>
+                            <p class="small mb-0">{{ ex.title[:30] }}{% if ex.title|length > 30 %}...{% endif %}</p>
                             <button class="btn btn-sm btn-outline-danger delete-exercise" 
                                     data-exercise-id="{{ ex.id }}">
                                 <i class="bi bi-trash"></i>
@@ -234,53 +284,329 @@
     </div>
 </div>
 
+<!-- Modal إدارة التشخيص -->
+<div class="modal fade" id="diagnosticModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-clipboard-check"></i> إدارة الاختبار التشخيصي</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-4" id="diagnosticTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="existing-tab" data-bs-toggle="tab" data-bs-target="#existing" type="button">
+                            <i class="bi bi-list-check"></i> الأسئلة الحالية ({{ section.diagnostics|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="new-tab" data-bs-toggle="tab" data-bs-target="#new" type="button">
+                            <i class="bi bi-plus-circle"></i> إضافة سؤال جديد
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="diagnosticTabContent">
+                    <!-- تبويب الأسئلة الحالية -->
+                    <div class="tab-pane fade show active" id="existing" role="tabpanel">
+                        {% if section.diagnostics %}
+                        <div class="list-group">
+                            {% for diagnostic in section.diagnostics %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-info me-2">{{ loop.index }}</span>
+                                            {% if diagnostic.question_type == 'single_choice' %}
+                                            <span class="badge bg-primary me-2">إجابة واحدة</span>
+                                            {% elif diagnostic.question_type == 'multiple_choice' %}
+                                            <span class="badge bg-warning me-2">إجابات متعددة</span>
+                                            {% else %}
+                                            <span class="badge bg-success me-2">إملاء الفراغ</span>
+                                            {% endif %}
+                                            
+                                            {% if '<img' in diagnostic.question %}
+                                            <span class="badge bg-success"><i class="bi bi-image"></i></span>
+                                            {% endif %}
+                                            {% if '\\(' in diagnostic.question or '\\[' in diagnostic.question %}
+                                            <span class="badge bg-primary"><i class="bi bi-calculator"></i></span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="question-content mb-2">
+                                            <strong>السؤال:</strong>
+                                            <div class="border p-2 bg-light rounded mt-1">
+                                                {{ diagnostic.question|safe|truncate(100) }}
+                                            </div>
+                                        </div>
+                                        
+                                        {% if diagnostic.question_type != 'fill_blank' %}
+                                        <div class="options-content">
+                                            <strong>الخيارات:</strong>
+                                            <div class="mt-1">
+                                                {% for option in diagnostic.get_options_list() %}
+                                                <span class="badge bg-secondary me-1">{{ option|truncate(20) }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="mt-2">
+                                            <strong>الإجابة الصحيحة:</strong>
+                                            <code>{{ diagnostic.correct_answer|truncate(50) }}</code>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="btn-group ms-3">
+                                        <button class="btn btn-sm btn-outline-danger delete-diagnostic-modal" 
+                                                data-diagnostic-id="{{ diagnostic.id }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-clipboard-x display-4 text-muted"></i>
+                            <p class="text-muted mt-3">لا توجد أسئلة حالياً</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- تبويب إضافة سؤال جديد -->
+                    <div class="tab-pane fade" id="new" role="tabpanel">
+                        <form method="POST" action="{{ url_for('edit_section', section_id=section.id) }}" 
+                            id="newDiagnosticForm" enctype="multipart/form-data">
+                            <!-- أضف حقل مخفي لتحديد نوع النموذج -->
+                            <input type="hidden" name="form_type" value="new_diagnostic">
+                            
+                            <!-- نوع السؤال -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">نوع السؤال</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="question_type" 
+                                        id="type_single" value="single_choice" checked>
+                                    <label class="btn btn-outline-primary" for="type_single">
+                                        <i class="bi bi-1-circle"></i> إجابة واحدة
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="question_type" 
+                                        id="type_multiple" value="multiple_choice">
+                                    <label class="btn btn-outline-warning" for="type_multiple">
+                                        <i class="bi bi-123"></i> إجابات متعددة
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="question_type" 
+                                        id="type_fill" value="fill_blank">
+                                    <label class="btn btn-outline-success" for="type_fill">
+                                        <i class="bi bi-pencil"></i> إملاء الفراغ
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- نص السؤال -->
+                            <div class="mb-3">
+                                <label for="question" class="form-label fw-bold">نص السؤال</label>
+                                <textarea class="form-control" id="question" name="question" rows="3" required 
+                                        placeholder="أدخل نص السؤال هنا..."></textarea>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="insertMath()">
+                                        <i class="bi bi-calculator"></i> معادلة رياضية
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('imageInput').click()">
+                                        <i class="bi bi-image"></i> صورة
+                                    </button>
+                                    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="uploadImage()">
+                                </div>
+                            </div>
+                            
+                            <!-- قسم خيارات الإجابة الواحدة -->
+                            <div id="singleChoiceOptions" class="question-options">
+                                <h6 class="mb-3">خيارات الإجابة (اختيار واحد)</h6>
+                                <div id="singleOptionsContainer" class="mb-3">
+                                    <!-- سيتم إضافة الخيارات هنا ديناميكياً -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSingleOption()">
+                                    <i class="bi bi-plus"></i> إضافة خيار
+                                </button>
+                                
+                                <div class="mt-3">
+                                    <label for="correct_answer_single" class="form-label">الإجابة الصحيحة</label>
+                                    <select class="form-select" id="correct_answer_single" name="correct_answer_single">
+                                        <option value="">اختر الإجابة الصحيحة...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- قسم خيارات الإجابات المتعددة -->
+                            <div id="multipleChoiceOptions" class="question-options" style="display: none;">
+                                <h6 class="mb-3">خيارات الإجابة (اختيارات متعددة)</h6>
+                                <div id="multipleOptionsContainer" class="mb-3">
+                                    <!-- سيتم إضافة الخيارات هنا ديناميكياً -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="addMultipleOption()">
+                                    <i class="bi bi-plus"></i> إضافة خيار
+                                </button>
+                                
+                                <div class="alert alert-info mt-3">
+                                    <i class="bi bi-info-circle"></i> ضع علامة ✓ على الخيارات الصحيحة
+                                </div>
+                            </div>
+                            
+                            <!-- قسم إملاء الفراغ -->
+                            <div id="fillBlankOptions" class="question-options" style="display: none;">
+                                <h6 class="mb-3">إملاء الفراغ</h6>
+                                <div class="mb-3">
+                                    <label for="correct_answer_fill" class="form-label">الإجابة الصحيحة</label>
+                                    <input type="text" class="form-control" id="correct_answer_fill" name="correct_answer_fill" 
+                                        placeholder="أدخل الإجابة الصحيحة...">
+                                    <div class="form-text">يمكن إدخال عدة إجابات صحيحة مفصولة بفاصلة (مثال: 8, ثمانية)</div>
+                                </div>
+                            </div>
+                            
+                            <!-- شرح الإجابة -->
+                            <div class="mb-4">
+                                <label for="explanation" class="form-label">شرح الإجابة</label>
+                                <textarea class="form-control" id="explanation" name="explanation" rows="2" 
+                                        placeholder="شرح طريقة حل السؤال..."></textarea>
+                                <div class="form-text">سيظهر هذا الشرح للطالب بعد إجابته مع النسبة المئوية</div>
+                            </div>
+                            
+                            <!-- النقاط -->
+                            <div class="mb-4">
+                                <label for="points" class="form-label">النقاط</label>
+                                <input type="number" class="form-control" id="points" name="points" 
+                                    value="10" min="1" max="100">
+                                <div class="form-text">عدد النقاط لهذا السؤال (10 نقاط = 100%)</div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    إلغاء
+                                </button>
+                                <button type="button" class="btn btn-warning" onclick="submitDiagnosticForm()">
+                                    <i class="bi bi-check-circle"></i> حفظ السؤال
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal للمعادلات الرياضية -->
+<div class="modal fade" id="mathModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calculator"></i> إدراج معادلة رياضية</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">اكتب معادلة LaTeX:</label>
+                    <input type="text" class="form-control" id="latexInput" 
+                           placeholder="مثال: x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">معاينة:</label>
+                    <div id="mathPreview" class="border p-3 text-center bg-light"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">رموز سريعة:</label>
+                    <div class="math-symbols">
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\frac{}{}')">كسر</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\sqrt{}')">جذر</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('^')">أس</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('_')">سفلية</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\pi')">π</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\alpha')">α</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\beta')">β</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\theta')">θ</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="insertSymbol('\\infty')">∞</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" onclick="insertMathEquation()">إدراج</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.question-options {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.option-item {
+    background-color: white;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    transition: all 0.3s;
+}
+
+.option-item:hover {
+    background-color: #f8f9fa;
+    border-color: #0d6efd;
+}
+
+.math-symbols button {
+    margin: 2px;
+    font-family: monospace;
+}
+
+#mathPreview {
+    min-height: 60px;
+    font-size: 1.2em;
+}
+
+#imagePreview {
+    max-width: 100%;
+    max-height: 200px;
+    margin-top: 10px;
+}
+
+.question-preview {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>
+
 <script>
+// تهيئة الصفحة
 document.addEventListener('DOMContentLoaded', function() {
+    // تهيئة قسم التشخيص
+    initDiagnosticSection();
+    
     // حذف تمرين
     document.querySelectorAll('.delete-exercise').forEach(button => {
         button.addEventListener('click', function() {
             const exerciseId = this.dataset.exerciseId;
-            if (confirm('هل أنت متأكد من حذف هذا التمرين؟')) {
-                fetch(`/teacher/exercise/${exerciseId}/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                });
-            }
+            deleteItem('تمرين', `/teacher/exercise/${exerciseId}/delete`);
         });
     });
     
     // حذف اختبار تشخيصي
-    document.querySelectorAll('.delete-diagnostic').forEach(button => {
+    document.querySelectorAll('.delete-diagnostic, .delete-diagnostic-modal').forEach(button => {
         button.addEventListener('click', function() {
             const diagnosticId = this.dataset.diagnosticId;
-            if (confirm('هل أنت متأكد من حذف هذا الاختبار التشخيصي؟')) {
-                fetch(`/teacher/diagnostic/${diagnosticId}/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                });
-            }
+            deleteItem('اختبار تشخيصي', `/teacher/diagnostic/${diagnosticId}/delete`);
         });
     });
     
@@ -288,25 +614,353 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.delete-reminder').forEach(button => {
         button.addEventListener('click', function() {
             const reminderId = this.dataset.reminderId;
-            if (confirm('هل أنت متأكد من حذف هذا التذكير؟')) {
-                fetch(`/teacher/reminder/${reminderId}/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                });
-            }
+            deleteItem('تذكير', `/teacher/reminder/${reminderId}/delete`);
         });
     });
+    
+    // استمع لتغير نوع السؤال
+    document.querySelectorAll('input[name="question_type"]').forEach(radio => {
+        radio.addEventListener('change', updateQuestionType);
+    });
+    
+    // إعادة تعيين النموذج عند إغلاق الـ Modal
+    const diagnosticModal = document.getElementById('diagnosticModal');
+    if (diagnosticModal) {
+        diagnosticModal.addEventListener('hidden.bs.modal', function() {
+            resetDiagnosticForm();
+        });
+    }
 });
+    
+// إعادة تعيين نموذج التشخيص
+function resetDiagnosticForm() {
+    document.getElementById('question').value = '';
+    document.getElementById('explanation').value = '';
+    document.getElementById('points').value = '10';
+    
+    // إعادة تعيين نوع السؤال
+    document.getElementById('type_single').checked = true;
+    updateQuestionType();
+    
+    // إعادة تعيين الخيارات
+    singleOptionCount = 0;
+    multipleOptionCount = 0;
+    document.getElementById('singleOptionsContainer').innerHTML = '';
+    document.getElementById('multipleOptionsContainer').innerHTML = '';
+    
+    // إضافة خيارين افتراضيين
+    addSingleOption();
+    addSingleOption();
+}
+
+// دالة حذف عامة
+function deleteItem(itemName, url) {
+    if (confirm(`هل أنت متأكد من حذف هذا ${itemName}؟`)) {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            alert('حدث خطأ أثناء الحذف');
+            console.error('Error:', error);
+        });
+    }
+}
+
+// تهيئة قسم التشخيص
+let singleOptionCount = 0;
+let multipleOptionCount = 0;
+
+function initDiagnosticSection() {
+    // تهيئة نوع السؤال
+    updateQuestionType();
+    
+    // إضافة خيارين افتراضيين للإجابة الواحدة
+    addSingleOption();
+    addSingleOption();
+}
+
+// تحديث واجهة نوع السؤال
+function updateQuestionType() {
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    
+    // إظهار/إخفاء الأقسام المناسبة
+    document.getElementById('singleChoiceOptions').style.display = 
+        questionType === 'single_choice' ? 'block' : 'none';
+    document.getElementById('multipleChoiceOptions').style.display = 
+        questionType === 'multiple_choice' ? 'block' : 'none';
+    document.getElementById('fillBlankOptions').style.display = 
+        questionType === 'fill_blank' ? 'block' : 'none';
+    
+    // إذا كان نوع متعدد، أضف خيارين افتراضيين
+    if (questionType === 'multiple_choice' && multipleOptionCount === 0) {
+        addMultipleOption();
+        addMultipleOption();
+    }
+}
+
+// إضافة خيار للإجابة الواحدة
+// تحديث دالة إضافة خيار للإجابة الواحدة
+// إضافة خيار للإجابة الواحدة (نسخة محسنة)
+function addSingleOption() {
+    singleOptionCount++;
+    const container = document.getElementById('singleOptionsContainer');
+    
+    const div = document.createElement('div');
+    div.className = 'option-item mb-2';
+    div.id = `single_option_${singleOptionCount}`;
+    div.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span class="me-2 fw-bold">${String.fromCharCode(64 + singleOptionCount)}.</span>
+            <input type="text" class="form-control form-control-sm" 
+                   name="option${singleOptionCount}" 
+                   placeholder="أدخل الخيار ${String.fromCharCode(64 + singleOptionCount)}..."
+                   oninput="updateSingleCorrectAnswers()">
+            <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                    onclick="removeSingleOption(${singleOptionCount})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(div);
+    updateSingleCorrectAnswers();
+}
+
+// إضافة خيار للإجابات المتعددة (نسخة محسنة)
+function addMultipleOption() {
+    multipleOptionCount++;
+    const container = document.getElementById('multipleOptionsContainer');
+    
+    const div = document.createElement('div');
+    div.className = 'option-item mb-2';
+    div.id = `multiple_option_${multipleOptionCount}`;
+    div.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="form-check me-2">
+                <input class="form-check-input" type="checkbox" 
+                       id="correct${multipleOptionCount}" 
+                       name="correct${multipleOptionCount}" value="on">
+                <label class="form-check-label" for="correct${multipleOptionCount}">
+                    ✓
+                </label>
+            </div>
+            <span class="me-2 fw-bold">${String.fromCharCode(64 + multipleOptionCount)}.</span>
+            <input type="text" class="form-control form-control-sm" 
+                   id="multi_option_${multipleOptionCount}" 
+                   name="option${multipleOptionCount}" 
+                   placeholder="أدخل الخيار ${String.fromCharCode(64 + multipleOptionCount)}...">
+            <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                    onclick="removeMultipleOption(${multipleOptionCount})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(div);
+}
+// إزالة الخيارات
+function removeSingleOption(index) {
+    const element = document.querySelector(`input[name="option${index}"]`);
+    if (element) {
+        element.closest('.option-item').remove();
+        updateSingleCorrectAnswers();
+    }
+}
+
+function removeMultipleOption(index) {
+    const element = document.querySelector(`input[name="option${index}"]`);
+    if (element) {
+        element.closest('.option-item').remove();
+    }
+}
+
+// تحديث قائمة الإجابات الصحيحة
+function updateSingleCorrectAnswers() {
+    const select = document.getElementById('correct_answer_single');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">اختر الإجابة الصحيحة...</option>';
+    
+    for (let i = 1; i <= singleOptionCount; i++) {
+        const input = document.querySelector(`input[name="option${i}"]`);
+        if (input && input.value.trim()) {
+            const option = document.createElement('option');
+            option.value = input.value;
+            option.textContent = input.value;
+            select.appendChild(option);
+        }
+    }
+    
+    if (currentValue) {
+        select.value = currentValue;
+    }
+}
+
+// إدراج معادلة رياضية
+function insertMath() {
+    const mathModal = new bootstrap.Modal(document.getElementById('mathModal'));
+    mathModal.show();
+    
+    // تحديث المعاينة
+    document.getElementById('latexInput').addEventListener('input', updateMathPreview);
+    updateMathPreview();
+}
+
+function insertSymbol(symbol) {
+    const input = document.getElementById('latexInput');
+    const cursorPos = input.selectionStart;
+    const currentValue = input.value;
+    
+    input.value = currentValue.substring(0, cursorPos) + 
+                  symbol + 
+                  currentValue.substring(cursorPos);
+    input.focus();
+    input.setSelectionRange(cursorPos + symbol.length, cursorPos + symbol.length);
+    updateMathPreview();
+}
+
+function updateMathPreview() {
+    const latex = document.getElementById('latexInput').value.trim();
+    const preview = document.getElementById('mathPreview');
+    
+    if (latex) {
+        preview.innerHTML = `\\(${latex}\\)`;
+        // إذا كان MathJax محملاً، أعد معالجة الرياضيات
+        if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+            MathJax.typesetPromise([preview]).catch(err => {
+                console.error('MathJax error:', err);
+                preview.innerHTML = `<span class="text-danger">${latex}</span>`;
+            });
+        }
+    } else {
+        preview.innerHTML = '<span class="text-muted">سيظهر معاينة المعادلة هنا...</span>';
+    }
+}
+
+function insertMathEquation() {
+    const latex = document.getElementById('latexInput').value.trim();
+    if (!latex) return;
+    
+    const textarea = document.getElementById('question');
+    const cursorPos = textarea.selectionStart;
+    const currentValue = textarea.value;
+    
+    const equation = `\\(${latex}\\)`;
+    textarea.value = currentValue.substring(0, cursorPos) + 
+                     equation + 
+                     currentValue.substring(cursorPos);
+    
+    // إغلاق الـ Modal
+    const mathModal = bootstrap.Modal.getInstance(document.getElementById('mathModal'));
+    mathModal.hide();
+    
+    // مسح الحقل
+    document.getElementById('latexInput').value = '';
+    updateMathPreview();
+}
+
+// رفع الصور
+function uploadImage() {
+    const input = document.getElementById('imageInput');
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    if (!file.type.match('image.*')) {
+        alert('⚠️ الرجاء اختيار ملف صورة فقط');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64Image = e.target.result;
+        const textarea = document.getElementById('question');
+        const cursorPos = textarea.selectionStart;
+        const currentValue = textarea.value;
+        
+        // إدراج الصورة في النص
+        const imageTag = `<img src="${base64Image}" alt="صورة توضيحية" class="img-fluid" style="max-width: 400px; max-height: 300px; margin: 10px 0;">`;
+        textarea.value = currentValue.substring(0, cursorPos) + 
+                        imageTag + 
+                        currentValue.substring(cursorPos);
+        
+        // إظهار تنبيه
+        alert('✅ تم إدراج الصورة في نص السؤال');
+    };
+    
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+
+// دالة حفظ السؤال التشخيصي
+function submitDiagnosticForm() {
+    const form = document.getElementById('newDiagnosticForm');
+    
+    // تحقق بسيط جداً
+    const question = document.getElementById('question').value.trim();
+    if (!question) {
+        alert('⚠️ نص السؤال مطلوب');
+        document.getElementById('question').focus();
+        return false;
+    }
+    
+    // تغيير حالة الزر
+    const submitBtn = event.target;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> جاري الحفظ...';
+    submitBtn.disabled = true;
+    
+    // إرسال النموذج بعد تأخير بسيط
+    setTimeout(() => {
+        form.submit();
+    }, 100);
+    
+    return true;
+}
+
+// دالة لتنظيف الخيارات الفارغة قبل الإرسال
+function cleanOptionsBeforeSubmit() {
+    const questionType = document.querySelector('input[name="question_type"]:checked').value;
+    
+    if (questionType === 'single_choice') {
+        // إزالة الخيارات الفارغة
+        for (let i = 1; i <= singleOptionCount; i++) {
+            const input = document.querySelector(`input[name="option${i}"]`);
+            if (input && !input.value.trim()) {
+                input.closest('.option-item')?.remove();
+            }
+        }
+    } else if (questionType === 'multiple_choice') {
+        // إزالة الخيارات الفارغة
+        for (let i = 1; i <= multipleOptionCount; i++) {
+            const input = document.querySelector(`input[name="option${i}"]`);
+            if (input && !input.value.trim()) {
+                input.closest('.option-item')?.remove();
+            }
+        }
+    }
+}
+// دالة لإرسال النموذج مباشرة (بدون تحقق JavaScript)
+function submitFormDirectly() {
+    // تنظيف الخيارات الفارغة أولاً
+    cleanOptionsBeforeSubmit();
+    
+    // إرسال النموذج مباشرة
+    document.getElementById('newDiagnosticForm').submit();
+}
 </script>
 {% endblock %}
