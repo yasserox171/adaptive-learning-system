@@ -1,0 +1,47 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Generate Android scaffold
+        run: |
+          flutter create /tmp/scaffold \
+            --project-name snake_classic \
+            --org com.example \
+            --platforms android
+          cp -r /tmp/scaffold/android flutter-snake/android
+
+      - name: Build APK
+        run: |
+          cd flutter-snake
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: snake-apk
+          path: flutter-snake/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
