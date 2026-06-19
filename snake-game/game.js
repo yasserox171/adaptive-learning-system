@@ -247,13 +247,13 @@ document.addEventListener('keydown', e => {
 // ── D-pad buttons ──
 document.getElementById('btn-up').addEventListener('touchstart', e => { e.preventDefault(); setDir(0, -1); }, { passive: false });
 document.getElementById('btn-down').addEventListener('touchstart', e => { e.preventDefault(); setDir(0, 1); }, { passive: false });
-document.getElementById('btn-left').addEventListener('touchstart', e => { e.preventDefault(); setDir(-1, 0); }, { passive: false });
-document.getElementById('btn-right').addEventListener('touchstart', e => { e.preventDefault(); setDir(1, 0); }, { passive: false });
+document.getElementById('btn-left').addEventListener('touchstart', e => { e.preventDefault(); setDir(1, 0); }, { passive: false });
+document.getElementById('btn-right').addEventListener('touchstart', e => { e.preventDefault(); setDir(-1, 0); }, { passive: false });
 // fallback click for desktop
 document.getElementById('btn-up').addEventListener('click', () => setDir(0, -1));
 document.getElementById('btn-down').addEventListener('click', () => setDir(0, 1));
-document.getElementById('btn-left').addEventListener('click', () => setDir(-1, 0));
-document.getElementById('btn-right').addEventListener('click', () => setDir(1, 0));
+document.getElementById('btn-left').addEventListener('click', () => setDir(1, 0));
+document.getElementById('btn-right').addEventListener('click', () => setDir(-1, 0));
 
 // ── Swipe on canvas ──
 let swipeX = 0, swipeY = 0;
@@ -268,7 +268,7 @@ canvas.addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - swipeX;
   const dy = e.changedTouches[0].clientY - swipeY;
   if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
-  if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+  if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? -1 : 1, 0);
   else setDir(0, dy > 0 ? 1 : -1);
 }, { passive: false });
 
