@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4ade80">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Snake">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Snake Classic 🐍</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- HUD -->
+  <div id="hud">
+    <span id="score">نقاط: 0</span>
+    <span id="level">مستوى: 1</span>
+    <span id="high">أعلى: 0</span>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-wrap">
+    <canvas id="game"></canvas>
+
+    <!-- Overlay (start / pause / game-over) -->
+    <div id="overlay">
+      <h2 id="overlay-title">🐍 Snake Classic</h2>
+      <p id="overlay-msg">اضغط ابدأ للعب</p>
+      <button id="retry-btn">▶ ابدأ اللعبة</button>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <div class="dpad">
+      <div></div>
+      <button class="dpad-btn" id="btn-up">▲</button>
+      <div></div>
+      <button class="dpad-btn" id="btn-left">◀</button>
+      <div class="dpad-btn dpad-center">
+        <span>🐍</span>
+      </div>
+      <button class="dpad-btn" id="btn-right">▶</button>
+      <div></div>
+      <button class="dpad-btn" id="btn-down">▼</button>
+      <div></div>
+    </div>
+
+    <div id="action-row">
+      <button class="action-btn" id="pause-btn">⏸ إيقاف</button>
+      <button class="action-btn" onclick="startGame()">↺ جديد</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .catch(err => console.warn('SW failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
